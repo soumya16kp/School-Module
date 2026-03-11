@@ -1,0 +1,70 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("SCHOOL_ADMIN")
+  school    School?  @relation(fields: [schoolId], references: [id])
+  schoolId  Int?     @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model School {
+  id                      Int      @id @default(autoincrement())
+  registrationNo          String   @unique // Example: SCH-WB-20250805-000056
+  schoolName              String
+  udiseCode               String?
+  schoolType              String   // Government / Private / International
+  boardAffiliation        String   // CBSE, ICSE, IB, State, etc.
+  principalName           String
+  principalContact        String
+  schoolEmail             String   @unique
+  studentStrength         Int
+  address                 String
+  state                   String
+  city                    String
+  pincode                 String
+  pocName                 String?
+  pocDesignation          String?
+  pocMobile               String?
+  pocEmail                String?
+  user                    User?
+  children                Child[]
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model Child {
+  id            Int      @id @default(autoincrement())
+  registrationNo String   @unique // Example: CHD-KA-20250805-000045
+  name          String
+  class         Int
+  section       String
+  fatherNumber  String
+  motherNumber  String
+  emailId       String?
+  mobile        String
+  gender        String
+  status        String   @default("Pending") // Done, Pending, Absent
+  notes         String?
+  school        School   @relation(fields: [schoolId], references: [id])
+  schoolId      Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
