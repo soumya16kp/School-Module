@@ -59,5 +59,22 @@ export const childService = {
   updateStatus: async (id: number, status: string) => {
     const response = await api.patch(`/children/${id}/status`, { status });
     return response.data;
+  },
+  getById: async (id: number) => {
+    // Assuming backend returns child details, let's create a getById in childRoutes too if not exists. Wait, child details can just be passed via state or fetched.
+    const response = await api.get(`/children/${id}`); // We will make sure this exists in backend
+    return response.data;
+  }
+};
+
+export const healthService = {
+  getRecords: async (childId: number) => {
+    const response = await api.get(`/health/${childId}`);
+    return response.data;
+  },
+  addRecord: async (childId: number, data: any) => {
+    // If data is FormData, headers will be handled by axios automatically
+    const response = await api.post(`/health/${childId}`, data);
+    return response.data;
   }
 };

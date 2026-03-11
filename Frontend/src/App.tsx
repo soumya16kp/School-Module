@@ -3,6 +3,8 @@ import Login from './pages/Login';
 import RegisterUser from './pages/RegisterUser';
 import RegisterSchool from './pages/RegisterSchool';
 import Dashboard from './pages/Dashboard';
+import ChildProfile from './pages/ChildProfile';
+import { HealthProvider } from './context/HealthContext';
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const token = localStorage.getItem('school_token');
@@ -28,6 +30,16 @@ function App() {
           element={
             <PrivateRoute>
               <Dashboard />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/child/:id" 
+          element={
+            <PrivateRoute>
+              <HealthProvider>
+                <ChildProfile />
+              </HealthProvider>
             </PrivateRoute>
           } 
         />

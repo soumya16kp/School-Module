@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { childService } from '../services/api';
-import { Search, Plus, Phone, Mail, GraduationCap, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Search, Plus, Phone, GraduationCap, CheckCircle2, Clock, XCircle, ChevronRight, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const ChildRecords: React.FC = () => {
+  const navigate = useNavigate();
   const [children, setChildren] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -88,109 +90,156 @@ const ChildRecords: React.FC = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Done': return <CheckCircle2 size={18} color="#10b981" />;
-      case 'Absent': return <XCircle size={18} color="#ef4444" />;
-      default: return <Clock size={18} color="#f59e0b" />;
-    }
+  const StatusBadge = ({ status, onClick }: { status: string, onClick?: (e: any) => void }) => {
+    let bg = '#fef3c7', color = '#92400e', Icon = Clock;
+    if (status === 'Done') { bg = '#dcfce7'; color = '#166534'; Icon = CheckCircle2; }
+    else if (status === 'Absent') { bg = '#fee2e2'; color = '#991b1b'; Icon = XCircle; }
+    
+    return (
+      <span 
+        onClick={onClick}
+        style={{ background: bg, color: color, padding: '6px 14px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: onClick ? 'pointer' : 'default', transition: 'all 0.2s', border: `1px solid ${color}30` }}
+      >
+        <Icon size={14}/> {status}
+      </span>
+    );
   };
 
   return (
     <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem' }}>Child Records</h2>
+      {/* Header Section */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', background: 'linear-gradient(90deg, var(--primary) 0%, #ec4899 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Student Directory</h2>
+          <p style={{ color: 'var(--text-muted)' }}>Manage and monitor student health profiles and registrations.</p>
+        </div>
         <button 
           onClick={() => setShowAddModal(true)} 
           className="btn btn-primary"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', boxShadow: '0 4px 15px var(--primary-light)' }}
         >
-          <Plus size={18} /> Add New Student
+          <Plus size={20} /> Add New Student
         </button>
       </div>
 
       {/* Search Bar */}
-      <form onSubmit={handleSearch} style={{ marginBottom: '2rem', display: 'flex', gap: '1rem' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <Search 
-            size={18} 
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} 
-          />
-          <input 
-            type="text" 
-            placeholder="Search by name, class, or mobile..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: '2.5rem' }}
-          />
-        </div>
-        <button type="submit" className="btn" style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>
-          Search
-        </button>
-      </form>
+      <div className="glass-card" style={{ marginBottom: '2rem', background: 'white', padding: '1rem' }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search 
+              size={20} 
+              style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)' }} 
+            />
+            <input 
+              type="text" 
+              placeholder="Search by student name, class section, or phone number..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ paddingLeft: '3rem', paddingRight: '1rem', height: '50px', background: '#f8fafc', border: 'none', borderRadius: '12px', width: '100%', fontSize: '1rem' }}
+            />
+          </div>
+          <button type="submit" className="btn btn-primary" style={{ height: '50px', padding: '0 2rem', borderRadius: '12px' }}>
+            Search
+          </button>
+        </form>
+      </div>
 
       {/* Records Table */}
-      <div className="glass-card" style={{ overflow: 'hidden', background: 'white' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)', background: '#f8fafc' }}>
-              <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-muted)' }}>REG ID</th>
-              <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-muted)' }}>NAME & CLASS</th>
-              <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-muted)' }}>CONTACT DETAILS</th>
-              <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-muted)' }}>GENDER</th>
-              <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-muted)' }}>STATUS</th>
-              <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-muted)' }}>ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading records...</td></tr>
-            ) : children.length === 0 ? (
-              <tr><td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>No records found</td></tr>
-            ) : children.map((child) => (
-              <tr key={child.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '1rem', verticalAlign: 'top' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 8px', borderRadius: '4px' }}>
-                    {child.registrationNo}
-                  </span>
-                </td>
-                <td style={{ padding: '1rem' }}>
-                  <div style={{ fontWeight: '600' }}>{child.name}</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <GraduationCap size={14} /> Class {child.class} - {child.section}
+      {/* Records List View */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {loading ? (
+          <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 600 }}>Loading student records...</div>
+        ) : children.length === 0 ? (
+          <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: 'white', color: 'var(--text-muted)', border: '2px dashed var(--border)' }}>
+             <User size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
+             <h3>No Students Found</h3>
+             <p>Register a new student to see them listed here.</p>
+          </div>
+        ) : (
+          children.map((child, index) => (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              key={child.id}
+              className="glass-card"
+              onClick={() => navigate(`/child/${child.id}`)}
+              style={{ 
+                background: 'white', 
+                padding: '1.5rem', 
+                cursor: 'pointer',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(250px, 2fr) 1.5fr 1fr 1.5fr 40px',
+                gap: '1.5rem',
+                alignItems: 'center',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(236, 72, 153, 0.1)';
+                e.currentTarget.style.borderColor = 'var(--primary-light)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'var(--shadow)';
+                e.currentTarget.style.borderColor = 'transparent';
+              }}
+            >
+              {/* Profile Info */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', fontWeight: 700, flexShrink: 0 }}>
+                  {child.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '4px' }}>{child.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--primary)', background: '#fdf2f8', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--primary-light)' }}>
+                      {child.registrationNo}
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>| {child.gender}</span>
                   </div>
-                </td>
-                <td style={{ padding: '1rem' }}>
+                </div>
+              </div>
+
+              {/* Class Info */}
+              <div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>CLASS & SECTION</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--text-main)' }}>
+                  <GraduationCap size={16} color="var(--primary)" /> Class {child.class}-{child.section}
+                </div>
+              </div>
+
+              {/* Contact Info */}
+              <div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>CONTACT</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Phone size={14} color="var(--text-muted)" /> {child.mobile}
+                    <Phone size={14} color="var(--primary)" /> {child.mobile}
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Mail size={14} /> {child.emailId || 'N/A'}
-                  </div>
-                </td>
-                <td style={{ padding: '1rem' }}>
-                  <span style={{ fontSize: '0.85rem' }}>{child.gender}</span>
-                </td>
-                <td style={{ padding: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: '500' }}>
-                    {getStatusIcon(child.status)}
-                    {child.status}
-                  </div>
-                </td>
-                <td style={{ padding: '1rem' }}>
+                </div>
+              </div>
+
+              {/* Status Actions */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
                   <select 
                     value={child.status}
                     onChange={(e) => updateStatus(child.id, e.target.value)}
-                    style={{ fontSize: '0.8rem', padding: '4px 8px', width: 'auto' }}
+                    style={{ fontSize: '0.8rem', padding: '8px 12px', borderRadius: '8px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                   >
-                    <option value="Pending">Pending</option>
-                    <option value="Done">Done</option>
-                    <option value="Absent">Absent</option>
+                    <option value="Pending">🕒 Pending</option>
+                    <option value="Done">✅ Done</option>
+                    <option value="Absent">❌ Absent</option>
                   </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <StatusBadge status={child.status} />
+              </div>
+
+              <div style={{ color: 'var(--text-muted)', display: 'flex', justifyContent: 'flex-end' }}>
+                 <ChevronRight size={20} />
+              </div>
+
+            </motion.div>
+          ))
+        )}
       </div>
 
       {/* Add Modal */}
@@ -198,14 +247,24 @@ const ChildRecords: React.FC = () => {
         {showAddModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="glass-card" 
-              style={{ background: 'white', width: '100%', maxWidth: '700px', padding: '2.5rem', maxHeight: '90vh', overflowY: 'auto' }}
+              style={{ background: 'white', width: '100%', maxWidth: '800px', padding: '0', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
             >
-              <h3 style={{ marginBottom: '1.5rem', fontSize: '1.5rem' }}>Register New Student</h3>
-              <form onSubmit={handleSubmit}>
+              <div style={{ background: 'linear-gradient(135deg, var(--primary-light) 0%, white 100%)', padding: '2rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.75rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Register New Student</h3>
+                  <p style={{ color: 'var(--text-muted)', margin: 0 }}>Enter the complete details of the student for registration.</p>
+                </div>
+                <button onClick={() => setShowAddModal(false)} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <XCircle size={18} color="var(--text-muted)" />
+                </button>
+              </div>
+
+              <div style={{ padding: '2rem', overflowY: 'auto' }}>
+                <form onSubmit={handleSubmit}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1.5rem' }}>
                   <div className="form-group">
                     <label>Full Name</label>
@@ -319,6 +378,7 @@ const ChildRecords: React.FC = () => {
                   <button type="button" onClick={() => setShowAddModal(false)} className="btn" style={{ background: '#f1f5f9' }}>Cancel</button>
                 </div>
               </form>
+              </div>
             </motion.div>
           </div>
         )}

@@ -65,6 +65,31 @@ model Child {
   notes         String?
   school        School   @relation(fields: [schoolId], references: [id])
   schoolId      Int
+  healthRecords HealthRecord[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model HealthRecord {
+  id                  Int      @id @default(autoincrement())
+  academicYear        String   // "2024-2025"
+  checkupDate         DateTime? // Date the checkup was performed
+  height              Float?
+  weight              Float?
+  bmi                 Float?
+  dentalCheckup       String?
+  dentalCavities        Int?
+  dentalOverallHealth   String?
+  eyeCheckup          String?
+  eyeVisionLeft         String?
+  eyeVisionRight        String?
+  immunization        Boolean  @default(false)
+  mentalWellness      Boolean  @default(false)
+  nutrition           Boolean  @default(false)
+  menstrualHygiene    Boolean  @default(false)
+  reportFile          String?  // New field for filename/path
+  child               Child    @relation(fields: [childId], references: [id])
+  childId             Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
