@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { schoolService } from '../services/api';
-import { School, User, MapPin, Phone, Mail, FileText, CheckCircle } from 'lucide-react';
+import { School, User, MapPin, FileText, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const RegisterSchool: React.FC = () => {
