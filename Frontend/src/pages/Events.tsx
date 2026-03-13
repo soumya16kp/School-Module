@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { eventService } from '../services/api';
-import { CalendarPlus, Plus, XCircle, Calendar, MapPin, User } from 'lucide-react';
+import { CalendarPlus, Plus, XCircle, Calendar, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const EVENT_TYPES = [
