@@ -42,6 +42,7 @@ type TabId = 'dashboard' | 'school-details' | 'events' | 'ambassadors' | 'certif
 const Dashboard: React.FC = () => {
   const [school, setSchool] = useState<any>(null);
   const [overview, setOverview] = useState<any>(null);
+  const [districtOverview, setDistrictOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -76,11 +77,21 @@ const Dashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (school && activeTab === 'dashboard') {
-      const ay = school.academicYear || '2024-2025';
-      dashboardService.getOverview(ay).then(setOverview).catch(() => setOverview(null));
+    const ay = school?.academicYear || '2024-2025';
+    if (activeTab !== 'dashboard') return;
+
+    if (role === 'DISTRICT_VIEWER') {
+      dashboardService
+        .getDistrictOverview(ay)
+        .then(setDistrictOverview)
+        .catch(() => setDistrictOverview(null));
+    } else if (school) {
+      dashboardService
+        .getOverview(ay)
+        .then(setOverview)
+        .catch(() => setOverview(null));
     }
-  }, [school, activeTab]);
+  }, [school, activeTab, role]);
 
   const handleLogout = () => {
     authService.logout();
@@ -295,7 +306,62 @@ const Dashboard: React.FC = () => {
             <Certifications />
           ) : activeTab === 'dashboard' ? (
             <div>
-              {overview && (
+              {role === 'DISTRICT_VIEWER' && districtOverview && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card"
+                  style={{ padding: '2rem', background: 'white', marginBottom: '2rem' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <h2 style={{ fontSize: '1.4rem' }}>District Overview ({districtOverview.academicYear})</h2>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      Showing schools with ≥ 10 students
+                    </p>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                      <thead>
+                        <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                          <th style={{ padding: '0.5rem' }}>School</th>
+                          <th style={{ padding: '0.5rem' }}>Location</th>
+                          <th style={{ padding: '0.5rem' }}>Students</th>
+                          <th style={{ padding: '0.5rem' }}>Coverage</th>
+                          <th style={{ padding: '0.5rem' }}>Drill Completion</th>
+                          <th style={{ padding: '0.5rem' }}>High‑risk flags</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {districtOverview.schools.map((s: any) => (
+                          <tr key={s.schoolId} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            <td style={{ padding: '0.5rem', fontWeight: 600 }}>{s.schoolName}</td>
+                            <td style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
+                              {s.city}, {s.state}
+                            </td>
+                            <td style={{ padding: '0.5rem' }}>{s.totalStudents}</td>
+                            <td style={{ padding: '0.5rem' }}>
+                              {s.coveragePercent}% ({s.studentsWithCheckup}/{s.totalStudents})
+                            </td>
+                            <td style={{ padding: '0.5rem' }}>
+                              {s.drillPercent}% ({s.drillCompleted}/{s.drillRequired})
+                            </td>
+                            <td style={{ padding: '0.5rem', maxWidth: '260px' }}>
+                              {s.highRiskFlags && s.highRiskFlags.length > 0 ? (
+                                <span style={{ fontSize: '0.8rem', color: '#991b1b' }}>
+                                  {s.highRiskFlags.join('; ')}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.8rem', color: '#16a34a' }}>No major flags</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.div>
+              )}
+              {role !== 'DISTRICT_VIEWER' && overview && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}

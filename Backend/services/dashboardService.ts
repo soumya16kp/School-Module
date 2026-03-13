@@ -113,4 +113,36 @@ export class DashboardService {
       },
     };
   }
+
+  // Aggregate view for district/board viewers – returns school-level overviews only
+  static async getDistrictOverview(academicYear: string) {
+    const schools = await prisma.school.findMany({
+      select: {
+        id: true,
+        schoolName: true,
+        city: true,
+        state: true,
+        academicYear: true,
+        studentStrength: true,
+      },
+    });
+
+    const overviews = await Promise.all(
+      schools.map(async (s) => {
+        const ay = academicYear || s.academicYear || "2024-2025";
+        const overview = await DashboardService.getOverview(s.id, ay);
+        return {
+          schoolId: s.id,
+          schoolName: s.schoolName,
+          city: s.city,
+          state: s.state,
+          studentStrength: s.studentStrength,
+          ...overview,
+        };
+      })
+    );
+
+    // PRD OQ-04: show only school-level aggregates, min cohort N=10
+    return overviews.filter((o) => (o.totalStudents ?? 0) >= 10);
+  }
 }

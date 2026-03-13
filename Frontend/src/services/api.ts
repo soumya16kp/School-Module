@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL,
+  // Default to local backend if VITE_BACKEND_URL is not set
+  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api',
 });
 
 // Add token to requests
@@ -125,6 +126,10 @@ export const ambassadorService = {
 export const dashboardService = {
   getOverview: async (academicYear?: string) => {
     const response = await api.get('/dashboard/overview', { params: academicYear ? { academicYear } : {} });
+    return response.data;
+  },
+  getDistrictOverview: async (academicYear?: string) => {
+    const response = await api.get('/dashboard/district-overview', { params: academicYear ? { academicYear } : {} });
     return response.data;
   }
 };

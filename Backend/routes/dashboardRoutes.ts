@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { authenticateJWT, AuthRequest, canViewHealth } from "../utils/authMiddleware";
+import {
+  authenticateJWT,
+  AuthRequest,
+  canViewHealth,
+} from "../utils/authMiddleware";
 import { DashboardService } from "../services/dashboardService";
 import { SchoolService } from "../services/schoolService";
 
@@ -7,7 +11,7 @@ const router = Router();
 
 router.use(authenticateJWT);
 
-// GET /api/dashboard/overview
+// GET /api/dashboard/overview – single-school view for school-level roles
 router.get("/overview", async (req: AuthRequest, res) => {
   try {
     if (!req.user || !canViewHealth(req.user.role)) {
@@ -18,11 +22,23 @@ router.get("/overview", async (req: AuthRequest, res) => {
       return res.status(404).json({ message: "School not found" });
     }
     const academicYear =
-      (req.query.academicYear as string) ||
-      school.academicYear ||
-      "2024-2025";
+      (req.query.academicYear as string) || school.academicYear || "2024-2025";
     const overview = await DashboardService.getOverview(school.id, academicYear);
     res.json(overview);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
+// GET /api/dashboard/district-overview – aggregate across schools
+router.get("/district-overview", async (req: AuthRequest, res) => {
+  try {
+    if (!req.user || !canViewHealth(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const academicYear = (req.query.academicYear as string) || "2024-2025";
+    const data = await DashboardService.getDistrictOverview(academicYear);
+    res.json({ academicYear, schools: data });
   } catch (err: any) {
     res.status(500).json({ message: err.message || "Server error" });
   }

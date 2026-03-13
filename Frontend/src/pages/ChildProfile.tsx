@@ -24,7 +24,29 @@ const ChildProfile: React.FC = () => {
 
   const currentRecord = healthRecords.find(r => r.academicYear === selectedYear) || healthRecords[healthRecords.length - 1];
 
-  const [formData, setFormData] = useState({
+  const deriveBmiAndCategory = (record: any) => {
+    if (!record) return { bmiValue: null as number | null, bmiCategory: null as string | null };
+    let bmiValue: number | null = record.bmi ?? null;
+    if ((bmiValue === null || bmiValue === undefined) && record.height && record.weight) {
+      const hMeters = record.height / 100;
+      if (hMeters > 0) {
+        const computed = record.weight / (hMeters * hMeters);
+        bmiValue = Number.isFinite(computed) ? parseFloat(computed.toFixed(2)) : null;
+      }
+    }
+    let bmiCategory: string | null = record.bmiCategory ?? null;
+    if (!bmiCategory && bmiValue != null && Number.isFinite(bmiValue)) {
+      if (bmiValue < 18.5) bmiCategory = 'UNDERWEIGHT';
+      else if (bmiValue < 25) bmiCategory = 'NORMAL';
+      else if (bmiValue < 30) bmiCategory = 'OVERWEIGHT';
+      else bmiCategory = 'OBESE';
+    }
+    return { bmiValue, bmiCategory };
+  };
+
+  const { bmiValue, bmiCategory } = deriveBmiAndCategory(currentRecord);
+
+  const emptyForm = {
     academicYear: '2024-2025',
     checkupDate: new Date().toISOString().split('T')[0],
     height: '',
@@ -32,14 +54,22 @@ const ChildProfile: React.FC = () => {
     dentalCheckup: 'Pending',
     dentalCavities: '',
     dentalOverallHealth: 'Healthy',
+    dentalReferralNeeded: false,
+    dentalReferralReason: '',
+    dentalNotes: '',
     eyeCheckup: 'Pending',
     eyeVisionLeft: '6/6',
     eyeVisionRight: '6/6',
+    visionOverall: '',
+    visionReferralNeeded: false,
+    visionNotes: '',
     immunization: false,
     mentalWellness: false,
     nutrition: false,
-    menstrualHygiene: false
-  });
+    menstrualHygiene: false,
+  };
+
+  const [formData, setFormData] = useState(emptyForm);
 
   useEffect(() => {
     if (id) {
@@ -51,9 +81,26 @@ const ChildProfile: React.FC = () => {
     e.preventDefault();
     if (!id) return;
 
+    const hNum = parseFloat(formData.height);
+    const wNum = parseFloat(formData.weight);
+    const cariesNum = formData.dentalCavities !== '' ? parseFloat(formData.dentalCavities) : null;
+
+    if (!Number.isFinite(hNum) || hNum < 40 || hNum > 220) {
+      alert('Please enter a valid height between 40 cm and 220 cm.');
+      return;
+    }
+    if (!Number.isFinite(wNum) || wNum < 5 || wNum > 200) {
+      alert('Please enter a valid weight between 5 kg and 200 kg.');
+      return;
+    }
+    if (cariesNum !== null && (cariesNum < 0 || cariesNum > 32)) {
+      alert('Dental caries index must be between 0 and 32.');
+      return;
+    }
+
     // Calculate BMI
-    const h = parseFloat(formData.height) / 100; // cm to m
-    const w = parseFloat(formData.weight);
+    const h = hNum / 100; // cm to m
+    const w = wNum;
     const bmi = h > 0 && w > 0 ? (w / (h * h)).toFixed(2) : null;
 
     const fd = new FormData();
@@ -70,22 +117,7 @@ const ChildProfile: React.FC = () => {
       setShowAddForm(false);
       setReportFile(null);
       // Reset form
-      setFormData({
-        academicYear: '2024-2025',
-        checkupDate: new Date().toISOString().split('T')[0],
-        height: '',
-        weight: '',
-        dentalCheckup: 'Pending',
-        dentalCavities: '',
-        dentalOverallHealth: 'Healthy',
-        eyeCheckup: 'Pending',
-        eyeVisionLeft: '6/6',
-        eyeVisionRight: '6/6',
-        immunization: false,
-        mentalWellness: false,
-        nutrition: false,
-        menstrualHygiene: false
-      });
+      setFormData(emptyForm);
     } catch (error) {
        console.error(error);
        alert("Failed to add record");
@@ -239,41 +271,143 @@ const ChildProfile: React.FC = () => {
                   </div>
                   <div className="form-group">
                     <label>Height (cm)</label>
-                    <input type="number" step="0.1" required value={formData.height} onChange={e => setFormData({...formData, height: e.target.value})} placeholder="e.g. 145" />
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="40"
+                      max="220"
+                      required
+                      value={formData.height}
+                      onChange={e => setFormData({...formData, height: e.target.value})}
+                      placeholder="e.g. 145"
+                    />
                   </div>
                   <div className="form-group">
                     <label>Weight (kg)</label>
-                    <input type="number" step="0.1" required value={formData.weight} onChange={e => setFormData({...formData, weight: e.target.value})} placeholder="e.g. 40" />
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="5"
+                      max="200"
+                      required
+                      value={formData.weight}
+                      onChange={e => setFormData({...formData, weight: e.target.value})}
+                      placeholder="e.g. 40"
+                    />
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
                       <label>Dental Metrics</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                        <select value={formData.dentalCheckup} onChange={e => setFormData({...formData, dentalCheckup: e.target.value})}>
-                          <option value="Done">Status: Done</option>
-                          <option value="Pending">Status: Pending</option>
-                          <option value="Requires Attention">Status: Attention Required</option>
-                        </select>
-                        <input type="number" placeholder="Cavities Count" value={formData.dentalCavities} onChange={e => setFormData({...formData, dentalCavities: e.target.value})} />
-                        <select value={formData.dentalOverallHealth} onChange={e => setFormData({...formData, dentalOverallHealth: e.target.value})}>
-                          <option value="Healthy">Overall: Healthy</option>
-                          <option value="Needs Cleaning">Overall: Needs Cleaning</option>
-                          <option value="Infection Detected">Overall: Infection Detected</option>
-                        </select>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Status</label>
+                          <select value={formData.dentalCheckup} onChange={e => setFormData({...formData, dentalCheckup: e.target.value})}>
+                            <option value="Done">Done</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Requires Attention">Attention Required</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Caries index (0–32)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="32"
+                            step="0.1"
+                            placeholder="e.g. 2"
+                            value={formData.dentalCavities}
+                            onChange={e => setFormData({ ...formData, dentalCavities: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Overall assessment</label>
+                          <select value={formData.dentalOverallHealth} onChange={e => setFormData({...formData, dentalOverallHealth: e.target.value})}>
+                            <option value="Healthy">Healthy</option>
+                            <option value="Needs Cleaning">Needs Cleaning</option>
+                            <option value="Infection Detected">Infection Detected</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Referral needed</label>
+                          <select
+                            value={String(formData.dentalReferralNeeded)}
+                            onChange={e => setFormData({ ...formData, dentalReferralNeeded: e.target.value === 'true' })}
+                          >
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                          </select>
+                          {formData.dentalReferralNeeded && (
+                            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                              <select
+                                value={formData.dentalReferralReason}
+                                onChange={e => setFormData({ ...formData, dentalReferralReason: e.target.value })}
+                              >
+                                <option value="">Select reason</option>
+                                <option value="MULTIPLE_CARIES">Multiple caries</option>
+                                <option value="PAIN">Pain</option>
+                                <option value="GINGIVITIS">Gingivitis</option>
+                                <option value="MALOCCLUSION">Malocclusion</option>
+                                <option value="OTHER">Other</option>
+                              </select>
+                              <input
+                                type="text"
+                                placeholder="Referral notes (optional)"
+                                value={formData.dentalNotes}
+                                onChange={e => setFormData({ ...formData, dentalNotes: e.target.value })}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
                    </div>
                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
                       <label>Eye Metrics</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                        <select value={formData.eyeCheckup} onChange={e => setFormData({...formData, eyeCheckup: e.target.value})}>
-                          <option value="Done">Status: Done</option>
-                          <option value="Pending">Status: Pending</option>
-                          <option value="Issue Detected">Status: Issue Detected</option>
-                        </select>
-                        <input type="text" placeholder="L-Eye Vision (e.g. 6/6)" value={formData.eyeVisionLeft} onChange={e => setFormData({...formData, eyeVisionLeft: e.target.value})} />
-                        <input type="text" placeholder="R-Eye Vision (e.g. 6/6)" value={formData.eyeVisionRight} onChange={e => setFormData({...formData, eyeVisionRight: e.target.value})} />
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Status</label>
+                          <select value={formData.eyeCheckup} onChange={e => setFormData({...formData, eyeCheckup: e.target.value})}>
+                            <option value="Done">Done</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Issue Detected">Issue Detected</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Left eye (e.g. 6/6)</label>
+                          <input type="text" placeholder="6/6" value={formData.eyeVisionLeft} onChange={e => setFormData({...formData, eyeVisionLeft: e.target.value})} />
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Right eye (e.g. 6/6)</label>
+                          <input type="text" placeholder="6/6" value={formData.eyeVisionRight} onChange={e => setFormData({...formData, eyeVisionRight: e.target.value})} />
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Referral & notes</label>
+                          <select
+                            value={String(formData.visionReferralNeeded)}
+                            onChange={e => setFormData({ ...formData, visionReferralNeeded: e.target.value === 'true' })}
+                          >
+                            <option value="false">No referral</option>
+                            <option value="true">Referral needed</option>
+                          </select>
+                          <select
+                            style={{ marginTop: '0.4rem' }}
+                            value={formData.visionOverall}
+                            onChange={e => setFormData({ ...formData, visionOverall: e.target.value })}
+                          >
+                            <option value="">Overall vision status</option>
+                            <option value="NORMAL">Normal</option>
+                            <option value="REQUIRES_FURTHER_EVAL">Requires further evaluation</option>
+                            <option value="UNDER_TREATMENT">Under treatment</option>
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Vision notes (optional)"
+                            style={{ marginTop: '0.4rem' }}
+                            value={formData.visionNotes}
+                            onChange={e => setFormData({ ...formData, visionNotes: e.target.value })}
+                          />
+                        </div>
                       </div>
                    </div>
                    <div className="form-group">
@@ -326,9 +460,26 @@ const ChildProfile: React.FC = () => {
                 className="glass-card" 
                 style={{ padding: '2rem', background: 'white', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}
               >
-                <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-                  <HeartPulse size={22} color="var(--primary)" /> BMI & Growth Tracking
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                    <HeartPulse size={22} color="var(--primary)" /> BMI & Growth Tracking
+                  </h3>
+                  {bmiValue != null && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Latest BMI:
+                      </span>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, padding: '4px 10px', borderRadius: '999px', background: '#eef2ff', color: '#3730a3' }}>
+                        {bmiValue.toFixed(2)}
+                      </span>
+                      {bmiCategory && (
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', textTransform: 'capitalize', background: bmiCategory === 'NORMAL' ? '#dcfce7' : '#fee2e2', color: bmiCategory === 'NORMAL' ? '#166534' : '#991b1b' }}>
+                          {bmiCategory.toLowerCase()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div style={{ width: '100%', height: '300px' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={healthRecords} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -356,7 +507,7 @@ const ChildProfile: React.FC = () => {
                       title: "Dental Health", 
                       icon: <Stethoscope size={24} color="#0ea5e9" />,
                       val: currentRecord.dentalCheckup, 
-                      sub: `Cavities: ${currentRecord.dentalCavities || 0} | ${currentRecord.dentalOverallHealth || 'N/A'}`,
+                      sub: `Caries index: ${currentRecord.dentalCavities ?? currentRecord.dentalCariesIndex ?? 0} | ${currentRecord.dentalOverallHealth || 'N/A'}${currentRecord.dentalReferralNeeded ? ' • Referral: ' + (currentRecord.dentalReferralReason || 'Yes') : ''}`,
                       year: currentRecord.academicYear,
                       date: currentRecord.checkupDate ? new Date(currentRecord.checkupDate).toLocaleDateString() : 'N/A',
                       delay: 0.2
@@ -365,7 +516,7 @@ const ChildProfile: React.FC = () => {
                       title: "Eye Vision", 
                       icon: <Eye size={24} color="#8b5cf6" />,
                       val: currentRecord.eyeCheckup, 
-                      sub: `L: ${currentRecord.eyeVisionLeft || 'N/A'} | R: ${currentRecord.eyeVisionRight || 'N/A'}`,
+                      sub: `L: ${currentRecord.eyeVisionLeft || 'N/A'} | R: ${currentRecord.eyeVisionRight || 'N/A'}${currentRecord.visionReferralNeeded ? ' • Referral' : ''}${currentRecord.visionOverall ? ' • ' + currentRecord.visionOverall.replace(/_/g, ' ').toLowerCase() : ''}`,
                       year: currentRecord.academicYear,
                       date: currentRecord.checkupDate ? new Date(currentRecord.checkupDate).toLocaleDateString() : 'N/A',
                       delay: 0.3
