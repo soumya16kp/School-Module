@@ -38,7 +38,7 @@ router.get("/", authenticateJWT, async (req: any, res: any) => {
 router.get("/:id", authenticateJWT, async (req: any, res: any) => {
   try {
     const child = await prisma.child.findUnique({
-      where: { id: parseInt(req.params.id) },
+      where: { id: parseInt(req.params.id as string) },
       include: {
         healthRecords: true
       }
@@ -53,7 +53,7 @@ router.get("/:id", authenticateJWT, async (req: any, res: any) => {
 // Update child status
 router.patch("/:id/status", authenticateJWT, async (req: any, res: any) => {
   try {
-    const child = await ChildService.updateChildStatus(parseInt(req.params.id), req.body.status);
+    const child = await ChildService.updateChildStatus(parseInt(req.params.id as string), req.body.status);
     res.json(child);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
