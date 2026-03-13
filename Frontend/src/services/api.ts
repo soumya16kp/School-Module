@@ -73,8 +73,80 @@ export const healthService = {
     return response.data;
   },
   addRecord: async (childId: number, data: any) => {
-    // If data is FormData, headers will be handled by axios automatically
     const response = await api.post(`/health/${childId}`, data);
     return response.data;
+  }
+};
+
+export const eventService = {
+  getAll: async (academicYear?: string) => {
+    const response = await api.get('/events', { params: academicYear ? { academicYear } : {} });
+    return response.data;
+  },
+  getById: async (id: number) => {
+    const response = await api.get(`/events/${id}`);
+    return response.data;
+  },
+  create: async (data: any) => {
+    const response = await api.post('/events', data);
+    return response.data;
+  },
+  update: async (id: number, data: any) => {
+    const response = await api.patch(`/events/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: number) => {
+    await api.delete(`/events/${id}`);
+  }
+};
+
+export const ambassadorService = {
+  getAll: async (type?: string) => {
+    const response = await api.get('/ambassadors', { params: type ? { type } : {} });
+    return response.data;
+  },
+  getById: async (id: number) => {
+    const response = await api.get(`/ambassadors/${id}`);
+    return response.data;
+  },
+  create: async (data: any) => {
+    const response = await api.post('/ambassadors', data);
+    return response.data;
+  },
+  update: async (id: number, data: any) => {
+    const response = await api.patch(`/ambassadors/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: number) => {
+    await api.delete(`/ambassadors/${id}`);
+  }
+};
+
+export const dashboardService = {
+  getOverview: async (academicYear?: string) => {
+    const response = await api.get('/dashboard/overview', { params: academicYear ? { academicYear } : {} });
+    return response.data;
+  }
+};
+
+export const certificationService = {
+  getAll: async (academicYear?: string) => {
+    const response = await api.get('/certifications', { params: academicYear ? { academicYear } : {} });
+    return response.data;
+  },
+  getById: async (id: number) => {
+    const response = await api.get(`/certifications/${id}`);
+    return response.data;
+  },
+  create: async (data: any) => {
+    const response = await api.post('/certifications', data);
+    return response.data;
+  },
+  update: async (id: number, data: any) => {
+    const response = await api.patch(`/certifications/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: number) => {
+    await api.delete(`/certifications/${id}`);
   }
 };

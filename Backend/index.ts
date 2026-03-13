@@ -5,6 +5,10 @@ import authRoutes from "./routes/authRoutes";
 import schoolRoutes from "./routes/schoolRoutes";
 import childRoutes from "./routes/childRoutes";
 import healthRoutes from "./routes/healthRoutes";
+import eventRoutes from "./routes/eventRoutes";
+import ambassadorRoutes from "./routes/ambassadorRoutes";
+import certificationRoutes from "./routes/certificationRoutes";
+import dashboardRoutes from "./routes/dashboardRoutes";
 
 dotenv.config();
 
@@ -20,6 +24,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/schools", schoolRoutes);
 app.use("/api/children", childRoutes);
 app.use("/api/health", healthRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/ambassadors", ambassadorRoutes);
+app.use("/api/certifications", certificationRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });

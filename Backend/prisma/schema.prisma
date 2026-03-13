@@ -18,7 +18,7 @@ model User {
   email     String   @unique
   password  String
   name      String
-  role      String   @default("SCHOOL_ADMIN")
+  role      UserRole @default(SCHOOL_ADMIN)
   school    School?  @relation(fields: [schoolId], references: [id])
   schoolId  Int?     @unique
   createdAt DateTime @default(now())
@@ -40,12 +40,17 @@ model School {
   state                   String
   city                    String
   pincode                 String
+  academicYear            String?  // Current academic year, e.g. "2024-2025"
+  channel                 String?  // Direct / Healthcare Partner / CSR
   pocName                 String?
   pocDesignation          String?
   pocMobile               String?
   pocEmail                String?
   user                    User?
   children                Child[]
+  events                  Event[]
+  certifications          Certification[]
+  ambassadors             AmbassadorDirectory[]
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 }
@@ -74,22 +79,143 @@ model HealthRecord {
   id                  Int      @id @default(autoincrement())
   academicYear        String   // "2024-2025"
   checkupDate         DateTime? // Date the checkup was performed
-  height              Float?
-  weight              Float?
-  bmi                 Float?
-  dentalCheckup       String?
-  dentalCavities        Int?
-  dentalOverallHealth   String?
+  height              Float?   // in cm
+  weight              Float?   // in kg
+  bmi                 Float?   // derived or entered
+  bmiPercentile       Float?   // 0-100, based on WHO/ICMR charts
+  bmiCategory         String?  // UNDERWEIGHT / NORMAL / OVERWEIGHT / OBESE
+
+  // Dental screening
+  dentalCariesIndex   Float?   // 0.0-32.0 (DMFT or similar index)
+  dentalHygieneScore  String?  // GOOD / FAIR / POOR
+  dentalOverallHealth String?  // HEALTHY / MILD_ISSUES / MODERATE_ISSUES / SEVERE_ISSUES
+  dentalReferralNeeded Boolean? @default(false)
+  dentalReferralReason String? // MULTIPLE_CARIES / PAIN / GINGIVITIS / MALOCCLUSION / OTHER (comma-separated if multiple)
+  dentalNotes          String?
+
+  // Vision screening
   eyeCheckup          String?
-  eyeVisionLeft         String?
-  eyeVisionRight        String?
-  immunization        Boolean  @default(false)
-  mentalWellness      Boolean  @default(false)
-  nutrition           Boolean  @default(false)
-  menstrualHygiene    Boolean  @default(false)
+  eyeVisionLeft       String?
+  eyeVisionRight      String?
+  visionOverall       String?  // NORMAL / REQUIRES_FURTHER_EVAL / UNDER_TREATMENT
+  visionReferralNeeded Boolean? @default(false)
+  visionNotes         String?
+
+  // Program attendance (per academic year, checkbox-style)
+  immunization        Boolean  @default(false) // Immunization / immunity program attended
+  mentalWellness      Boolean  @default(false) // Mental wellness session attended
+  nutrition           Boolean  @default(false) // Nutrition program attended
+  menstrualHygiene    Boolean  @default(false) // Menstrual hygiene session attended (where applicable)
+
   reportFile          String?  // New field for filename/path
   child               Child    @relation(fields: [childId], references: [id])
   childId             Int
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+// Events: checkups, screenings, drills, expert sessions, etc.
+model Event {
+  id             Int       @id @default(autoincrement())
+  school         School    @relation(fields: [schoolId], references: [id])
+  schoolId       Int
+  type           EventType
+  title          String
+  description    String?
+  academicYear   String    // "2024-2025"
+  scheduledAt    DateTime?
+  completedAt    DateTime?
+  attendanceJson Json?     // aggregated attendance/outcomes (per class, counts, etc.)
+
+  ambassador           AmbassadorDirectory? @relation(fields: [ambassadorId], references: [id])
+  ambassadorId        Int?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// Directory of external/internal partners for drills and programs
+model AmbassadorDirectory {
+  id           Int           @id @default(autoincrement())
+  type         AmbassadorType
+  name         String
+  organization String?
+  phone        String?
+  email        String?
+  serviceArea  String?       // e.g. district / block / cluster
+  active       Boolean       @default(true)
+  notes        String?
+
+  // Optional scoping to a school; if null, treated as global
+  school    School?  @relation(fields: [schoolId], references: [id])
+  schoolId  Int?
+
+  events    Event[]
+}
+
+// School-level certifications (UDISE, safety drills, etc.)
+model Certification {
+  id           Int                 @id @default(autoincrement())
+  school       School              @relation(fields: [schoolId], references: [id])
+  schoolId     Int
+  type         CertificationType
+  status       CertificationStatus
+  academicYear String              // "2024-2025"
+  issuedAt     DateTime?
+  validUntil   DateTime?
+  metadata     Json?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum EventType {
+  GENERAL_CHECKUP
+  DENTAL_SCREENING
+  VISION_SCREENING
+  BMI_ASSESSMENT
+  NUTRITION_SESSION
+  HPV_AWARENESS
+  EXPERT_SESSION
+  FIRE_DRILL
+  BLACKOUT_DRILL
+  BUNKER_DRILL
+  CPR_TRAINING
+  FIRST_AID_TRAINING
+  OTHER
+}
+
+enum AmbassadorType {
+  FIRE_DEPT
+  POLICE
+  NDRF
+  CPR_TRAINER
+  FIRST_AID_TRAINER
+  HEALTH_PARTNER
+  OTHER
+}
+
+enum CertificationType {
+  UDISE_COMPLIANCE
+  FIRE_SAFETY_DRILL
+  ANNUAL_SAFETY
+  HEALTH_PROGRAM
+  OTHER
+}
+
+enum CertificationStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+// User roles (PRD §4.1)
+enum UserRole {
+  SCHOOL_ADMIN
+  PRINCIPAL
+  CLASS_TEACHER
+  NURSE_COUNSELLOR
+  DISTRICT_VIEWER
+  WOMBTO18_OPS
 }

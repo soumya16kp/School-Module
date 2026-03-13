@@ -12,6 +12,30 @@ export interface AuthRequest extends Request {
   };
 }
 
+// Role helpers (PRD §4.1)
+export const canViewHealth = (role: string) =>
+  ["SCHOOL_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "NURSE_COUNSELLOR", "WOMBTO18_OPS", "DISTRICT_VIEWER"].includes(role);
+
+export const canEditHealth = (role: string) =>
+  ["SCHOOL_ADMIN", "PRINCIPAL", "NURSE_COUNSELLOR", "WOMBTO18_OPS"].includes(role);
+
+export const canScheduleEvents = (role: string) =>
+  ["SCHOOL_ADMIN", "PRINCIPAL", "WOMBTO18_OPS"].includes(role);
+
+export const canExportReports = (role: string) =>
+  ["SCHOOL_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "NURSE_COUNSELLOR", "WOMBTO18_OPS", "DISTRICT_VIEWER"].includes(role);
+
+export const canManageAmbassadors = (role: string) =>
+  ["SCHOOL_ADMIN", "PRINCIPAL", "WOMBTO18_OPS"].includes(role);
+
+export const requireRoles = (allowedRoles: string[]) => (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user || !allowedRoles.includes(req.user.role)) {
+    res.status(403).json({ message: "Forbidden" });
+    return;
+  }
+  next();
+};
+
 export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 

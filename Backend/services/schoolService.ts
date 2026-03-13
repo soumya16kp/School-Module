@@ -31,6 +31,8 @@ export class SchoolService {
         pocDesignation: data.pocDesignation,
         pocMobile: data.pocMobile,
         pocEmail: data.pocEmail,
+        academicYear: data.academicYear,
+        channel: data.channel,
         user: {
           connect: { id: userId }
         }
