@@ -1,31 +1,58 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { parentService } from '../services/api';
-import { Phone, ArrowRight, HeartPulse, ShieldCheck } from 'lucide-react';
+import { Phone, ArrowRight, HeartPulse, ShieldCheck, KeyRound } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const ParentLogin: React.FC = () => {
   const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [devOtp, setDevOtp] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setCode('');
+    setDevOtp(null);
+    try {
+      const res = await parentService.sendOtp(phone);
+      if (res.devOtp) setDevOtp(res.devOtp);
+      setStep('otp');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to send OTP. Verify your phone number.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const response = await parentService.login(phone);
+      const response = await parentService.verifyOtp(phone, code);
       if (response.children && response.children.length === 1) {
         navigate(`/parent/dashboard/${response.children[0].id}`);
       } else {
         navigate('/parent/children');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please verify your phone number.');
+      setError(err.response?.data?.message || 'Invalid OTP. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBack = () => {
+    setStep('phone');
+    setCode('');
+    setError('');
+    setDevOtp(null);
   };
 
   return (
@@ -54,32 +81,76 @@ const ParentLogin: React.FC = () => {
           </motion.div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-            <label style={{ color: '#475569', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
-              <Phone size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} /> 
-              Registered Phone Number
-            </label>
-            <input 
-              type="tel" 
-              placeholder="e.g. 9876543210" 
-              value={phone} 
-              onChange={(e) => setPhone(e.target.value)} 
-              required 
-              style={{ width: '100%', padding: '0.875rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '1.1rem', transition: 'all 0.2s' }}
-            />
-          </div>
-          
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
-            style={{ width: '100%', padding: '1rem', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', transition: 'transform 0.2s' }} 
-            disabled={loading}
-          >
-            {loading ? 'Verifying...' : 'Access My Child\'s Records'} 
-            {!loading && <ArrowRight size={20} />}
-          </button>
-        </form>
+        {step === 'phone' ? (
+          <form onSubmit={handleSendOtp}>
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label style={{ color: '#475569', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                <Phone size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} /> 
+                Registered Phone Number
+              </label>
+              <input 
+                type="tel" 
+                placeholder="e.g. 9876543210" 
+                value={phone} 
+                onChange={(e) => setPhone(e.target.value)} 
+                required 
+                style={{ width: '100%', padding: '0.875rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '1.1rem', transition: 'all 0.2s' }}
+              />
+            </div>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '1rem', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', transition: 'transform 0.2s' }} 
+              disabled={loading}
+            >
+              {loading ? 'Sending OTP...' : 'Send OTP'} 
+              {!loading && <ArrowRight size={20} />}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOtp}>
+            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f0fdf4', borderRadius: '10px', fontSize: '0.9rem', color: '#166534' }}>
+              OTP sent to <strong>{phone}</strong>
+            </div>
+            {devOtp && (
+              <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '10px', fontSize: '0.85rem', color: '#92400e' }}>
+                <strong>Dev mode:</strong> Your OTP is <code style={{ background: '#fff', padding: '2px 8px', borderRadius: '4px' }}>{devOtp}</code>
+              </div>
+            )}
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label style={{ color: '#475569', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                <KeyRound size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} /> 
+                Enter 6-digit OTP
+              </label>
+              <input 
+                type="text" 
+                inputMode="numeric" 
+                maxLength={6}
+                placeholder="000000" 
+                value={code} 
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} 
+                required 
+                style={{ width: '100%', padding: '0.875rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '1.25rem', letterSpacing: '0.5em', textAlign: 'center', transition: 'all 0.2s' }}
+              />
+            </div>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '1rem', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', transition: 'transform 0.2s' }} 
+              disabled={loading || code.length !== 6}
+            >
+              {loading ? 'Verifying...' : 'Verify & Access'} 
+              {!loading && <ArrowRight size={20} />}
+            </button>
+            <button 
+              type="button" 
+              onClick={handleBack}
+              style={{ width: '100%', marginTop: '0.75rem', padding: '0.75rem', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              ← Use different number
+            </button>
+          </form>
+        )}
 
         <div style={{ textAlign: 'center', marginTop: '2rem', fontSize: '0.95rem', color: '#94a3b8' }}>
           <p>Links are verified against school registration data.</p>

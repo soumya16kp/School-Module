@@ -14,6 +14,7 @@ import dashboardRoutes from "./routes/dashboardRoutes";
 import parentRoutes from "./routes/parentRoutes";
 import accessRoutes from "./routes/accessRoutes";
 import partnerRoutes from "./routes/partnerRoutes";
+import cardRoutes from "./routes/cardRoutes";
 
 // Config is already loaded at the top
 
@@ -52,6 +53,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/parent", parentRoutes);
 app.use("/api/access", accessRoutes);
 app.use("/api/partner", partnerRoutes);
+app.use("/api/card", cardRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });

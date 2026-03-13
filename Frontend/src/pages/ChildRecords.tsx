@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { childService } from '../services/api';
-import { Search, Plus, Phone, GraduationCap, CheckCircle2, Clock, XCircle, ChevronRight, User } from 'lucide-react';
+import { childService, cardService, dashboardService } from '../services/api';
+import { Search, Plus, Phone, GraduationCap, CheckCircle2, Clock, XCircle, ChevronRight, User, CreditCard, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,6 +10,9 @@ const ChildRecords: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportFilters, setExportFilters] = useState({ format: 'csv' as 'csv' | 'pdf', academicYear: '', class: '' as string, section: '', domain: 'all' });
   const [formData, setFormData] = useState({
     name: '',
     class: '',
@@ -91,6 +94,36 @@ const ChildRecords: React.FC = () => {
     }
   };
 
+  const handleExport = async () => {
+    setExportLoading(true);
+    try {
+      await dashboardService.exportReport({
+        format: exportFilters.format,
+        academicYear: exportFilters.academicYear || undefined,
+        class: exportFilters.class ? parseInt(exportFilters.class) : undefined,
+        section: exportFilters.section || undefined,
+        domain: exportFilters.domain !== 'all' ? exportFilters.domain : undefined,
+      });
+      setShowExportModal(false);
+    } catch (err: any) {
+      alert(err.message || 'Export failed');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const openIdCard = async (e: React.MouseEvent, childId: number) => {
+    e.stopPropagation();
+    try {
+      const token = await cardService.ensureToken(childId);
+      const url = `${window.location.origin}/card/${token}`;
+      window.open(url, '_blank', 'noopener');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate ID card');
+    }
+  };
+
   const StatusBadge = ({ status, onClick }: { status: string, onClick?: (e: any) => void }) => {
     let bg = '#fef3c7', color = '#92400e', Icon = Clock;
     if (status === 'Done') { bg = '#dcfce7'; color = '#166534'; Icon = CheckCircle2; }
@@ -114,13 +147,21 @@ const ChildRecords: React.FC = () => {
           <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', background: 'linear-gradient(90deg, var(--primary) 0%, #ec4899 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Student Directory</h2>
           <p style={{ color: 'var(--text-muted)' }}>Manage and monitor student health profiles and registrations.</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)} 
-          className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', boxShadow: '0 4px 15px var(--primary-light)' }}
-        >
-          <Plus size={20} /> Add New Student
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => setShowExportModal(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer' }}
+          >
+            <Download size={20} /> Export Report
+          </button>
+          <button 
+            onClick={() => setShowAddModal(true)} 
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', boxShadow: '0 4px 15px var(--primary-light)' }}
+          >
+            <Plus size={20} /> Add New Student
+          </button>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -221,7 +262,14 @@ const ChildRecords: React.FC = () => {
               </div>
 
               {/* Status Actions */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={(e) => openIdCard(e, child.id)}
+                    title="View ID Card"
+                    style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'white', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600 }}
+                  >
+                    <CreditCard size={16} /> ID Card
+                  </button>
                   <select 
                     value={child.status}
                     onChange={(e) => updateStatus(child.id, e.target.value)}
@@ -379,6 +427,95 @@ const ChildRecords: React.FC = () => {
                   <button type="button" onClick={() => setShowAddModal(false)} className="btn" style={{ background: '#f1f5f9' }}>Cancel</button>
                 </div>
               </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Export Modal */}
+      <AnimatePresence>
+        {showExportModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }} onClick={() => setShowExportModal(false)}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-card" 
+              style={{ background: 'white', width: '100%', maxWidth: '420px', padding: '0', borderRadius: '16px', overflow: 'hidden' }}
+            >
+              <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Export Health Report</h3>
+                <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                  <XCircle size={20} color="var(--text-muted)" />
+                </button>
+              </div>
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Format</label>
+                  <select 
+                    value={exportFilters.format} 
+                    onChange={(e) => setExportFilters({ ...exportFilters, format: e.target.value as 'csv' | 'pdf' })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                  >
+                    <option value="csv">CSV</option>
+                    <option value="pdf">PDF</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Academic Year (optional)</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. 2024-2025"
+                    value={exportFilters.academicYear}
+                    onChange={(e) => setExportFilters({ ...exportFilters, academicYear: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Leave blank for all years</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Class</label>
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 10"
+                      value={exportFilters.class}
+                      onChange={(e) => setExportFilters({ ...exportFilters, class: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Section</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. A"
+                      value={exportFilters.section}
+                      onChange={(e) => setExportFilters({ ...exportFilters, section: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Health Domain</label>
+                  <select 
+                    value={exportFilters.domain} 
+                    onChange={(e) => setExportFilters({ ...exportFilters, domain: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                  >
+                    <option value="all">All domains</option>
+                    <option value="bmi">BMI only</option>
+                    <option value="dental">Dental only</option>
+                    <option value="vision">Vision only</option>
+                    <option value="immunization">Immunization only</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <button onClick={handleExport} disabled={exportLoading} className="btn btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <Download size={18} /> {exportLoading ? 'Exporting...' : 'Download'}
+                  </button>
+                  <button onClick={() => setShowExportModal(false)} className="btn" style={{ background: '#f1f5f9' }}>Cancel</button>
+                </div>
               </div>
             </motion.div>
           </div>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useHealthContext } from '../context/HealthContext';
-import { Activity, HeartPulse, ShieldCheck, Calendar, ArrowLeft, Phone, Mail, GraduationCap, Stethoscope, Droplets, Apple, BrainCircuit, Syringe, Eye } from 'lucide-react';
+import { cardService } from '../services/api';
+import { Activity, HeartPulse, ShieldCheck, Calendar, ArrowLeft, Phone, Mail, GraduationCap, Stethoscope, Droplets, Apple, BrainCircuit, Syringe, Eye, CreditCard } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 
@@ -13,6 +14,7 @@ const ChildProfile: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [reportFile, setReportFile] = useState<File | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>('');
+  const [idCardLoading, setIdCardLoading] = useState(false);
   
   const uniqueYears = Array.from(new Set(healthRecords.map(r => r.academicYear))).sort().reverse();
   
@@ -124,6 +126,21 @@ const ChildProfile: React.FC = () => {
     }
   };
 
+  const openIdCard = async () => {
+    if (!id) return;
+    setIdCardLoading(true);
+    try {
+      const token = await cardService.ensureToken(parseInt(id));
+      const url = `${window.location.origin}/card/${token}`;
+      window.open(url, '_blank', 'noopener');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate ID card');
+    } finally {
+      setIdCardLoading(false);
+    }
+  };
+
   if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--primary)' }}>Loading Profile...</div>;
   if (!child) return <div style={{ padding: '3rem', textAlign: 'center' }}>Child not found</div>;
 
@@ -166,6 +183,13 @@ const ChildProfile: React.FC = () => {
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>{child.gender}</span>
             </div>
             
+            <button
+              onClick={openIdCard}
+              disabled={idCardLoading}
+              style={{ marginBottom: '1rem', padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--primary-light)', background: '#fdf2f8', color: 'var(--primary)', fontWeight: 600, cursor: idCardLoading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              <CreditCard size={18} /> {idCardLoading ? 'Generating...' : 'View / Download ID Card'}
+            </button>
             <div style={{ width: '100%', borderTop: '1px solid var(--border)', paddingTop: '1.5rem', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><GraduationCap size={18} /></div>

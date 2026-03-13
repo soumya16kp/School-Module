@@ -8,6 +8,7 @@ import ParentLogin from './pages/ParentLogin';
 import ChildSelection from './pages/ChildSelection';
 import ParentDashboard from './pages/ParentDashboard';
 import EmergencyAccess from './pages/EmergencyAccess';
+import CardView from './pages/CardView';
 import { HealthProvider } from './context/HealthContext';
 import type { ReactNode } from 'react';
 
@@ -75,6 +76,9 @@ function App() {
 
         {/* Public Emergency Access Route (no auth - parent approves via QR) */}
         <Route path="/emergency-access/:childId" element={<EmergencyAccess />} />
+
+        {/* Public Health ID Card (no auth - scan QR opens this) */}
+        <Route path="/card/:token" element={<CardView />} />
       </Routes>
     </Router>
   );
