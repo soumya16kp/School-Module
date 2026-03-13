@@ -64,7 +64,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
     }
     const school = await SchoolService.getSchoolByUserId(req.user.id);
     const schoolId = school?.id ?? null;
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ambassador id" });
     }
@@ -86,7 +86,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
     }
     const school = await SchoolService.getSchoolByUserId(req.user.id);
     const schoolId = school?.id ?? null;
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ambassador id" });
     }
@@ -116,7 +116,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
     }
     const school = await SchoolService.getSchoolByUserId(req.user.id);
     const schoolId = school?.id ?? null;
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ambassador id" });
     }

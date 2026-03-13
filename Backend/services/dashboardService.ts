@@ -21,37 +21,37 @@ export class DashboardService {
     ]);
 
     const totalStudents = children.length;
-    const studentIds = new Set(children.map((c) => c.id));
+    const studentIds = new Set(children.map((c: any) => c.id));
 
     // Students with annual checkup: HealthRecord with checkupDate in this academic year
     const studentsWithCheckup = new Set(
-      healthRecords.filter((r) => r.checkupDate != null && studentIds.has(r.childId)).map((r) => r.childId)
+      healthRecords.filter((r: any) => r.checkupDate != null && studentIds.has(r.childId)).map((r: any) => r.childId)
     ).size;
     const coveragePercent = totalStudents > 0 ? Math.round((studentsWithCheckup / totalStudents) * 100) : 0;
 
     // Drill completion: completed drills of required types
     const completedDrills = events.filter(
-      (e) => e.completedAt != null && DRILL_TYPES.includes(e.type)
+      (e: any) => e.completedAt != null && DRILL_TYPES.includes(e.type)
     );
-    const completedTypes = new Set(completedDrills.map((e) => e.type));
+    const completedTypes = new Set(completedDrills.map((e: any) => e.type));
     const drillCompleted = completedTypes.size;
     const drillRequired = DRILL_TYPES.length;
     const drillPercent = Math.round((drillCompleted / drillRequired) * 100);
 
     // Prevalence (for high-risk): need screened count and flagged count per domain
-    const screened = healthRecords.filter((r) => r.checkupDate != null).length;
+    const screened = healthRecords.filter((r: any) => r.checkupDate != null).length;
     const dentalFlagged = healthRecords.filter(
-      (r) =>
+      (r: any) =>
         r.dentalOverallHealth &&
         ["MODERATE_ISSUES", "SEVERE_ISSUES"].includes(r.dentalOverallHealth)
     ).length;
     const visionFlagged = healthRecords.filter(
-      (r) =>
+      (r: any) =>
         r.visionOverall &&
         ["REQUIRES_FURTHER_EVAL", "UNDER_TREATMENT"].includes(r.visionOverall)
     ).length;
     const bmiHigh = healthRecords.filter(
-      (r) => r.bmiCategory && ["OVERWEIGHT", "OBESE"].includes(r.bmiCategory)
+      (r: any) => r.bmiCategory && ["OVERWEIGHT", "OBESE"].includes(r.bmiCategory)
     ).length;
 
     const dentalPrevalence =
@@ -77,9 +77,9 @@ export class DashboardService {
     // Upcoming events (scheduled in future, limit 5)
     const now = new Date();
     const upcomingEvents = events
-      .filter((e) => e.scheduledAt && new Date(e.scheduledAt) > now)
+      .filter((e: any) => e.scheduledAt && new Date(e.scheduledAt) > now)
       .slice(0, 5)
-      .map((e) => ({
+      .map((e: any) => ({
         id: e.id,
         type: e.type,
         title: e.title,
@@ -87,8 +87,8 @@ export class DashboardService {
       }));
 
     // Certification summary
-    const certActive = certifications.filter((c) => c.status === "ACTIVE").length;
-    const certPending = certifications.filter((c) => c.status === "PENDING").length;
+    const certActive = certifications.filter((c: any) => c.status === "ACTIVE").length;
+    const certPending = certifications.filter((c: any) => c.status === "PENDING").length;
 
     return {
       schoolId,

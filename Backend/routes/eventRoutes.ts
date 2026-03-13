@@ -67,7 +67,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
     if (!school) {
       return res.status(404).json({ message: "School not found" });
     }
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid event id" });
     }
@@ -91,7 +91,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
     if (!school) {
       return res.status(404).json({ message: "School not found" });
     }
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid event id" });
     }
@@ -123,7 +123,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
     if (!school) {
       return res.status(404).json({ message: "School not found" });
     }
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid event id" });
     }
