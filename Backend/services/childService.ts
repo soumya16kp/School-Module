@@ -6,10 +6,11 @@ export class ChildService {
     const dateStr = date.toISOString().split("T")[0]?.replace(/-/g, "") || "";
     const state = data.stateCode || "KA";
     
-    // Sequence Logic
+    // Sequence Logic - Per School
     const count = await prisma.child.count({ where: { schoolId } });
-    const sequence = (count + 1).toString().padStart(6, "0");
-    const registrationNo = `CHD-${state}-${dateStr}-${sequence}`;
+    const sequence = (count + 1).toString().padStart(4, "0");
+    // Format: CHD-STATE-DATE-SCHOOLID-SEQ (More unique)
+    const registrationNo = `CHD-${state}-${dateStr}-${schoolId}-${sequence}`;
 
     return prisma.child.create({
       data: {

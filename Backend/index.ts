@@ -1,6 +1,8 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes";
 import schoolRoutes from "./routes/schoolRoutes";
 import childRoutes from "./routes/childRoutes";
@@ -9,8 +11,11 @@ import eventRoutes from "./routes/eventRoutes";
 import ambassadorRoutes from "./routes/ambassadorRoutes";
 import certificationRoutes from "./routes/certificationRoutes";
 import dashboardRoutes from "./routes/dashboardRoutes";
+import parentRoutes from "./routes/parentRoutes";
+import accessRoutes from "./routes/accessRoutes";
+import partnerRoutes from "./routes/partnerRoutes";
 
-dotenv.config();
+// Config is already loaded at the top
 
 const app = express();
 const PORT = process.env["PORT"] || 5000;
@@ -24,6 +29,15 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json());
+
+// Logger
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    console.log(`${req.method} ${req.url} - ${res.statusCode}`);
+  });
+  next();
+});
+
 app.use("/uploads", express.static("uploads"));
 
 // Routes
@@ -35,6 +49,9 @@ app.use("/api/events", eventRoutes);
 app.use("/api/ambassadors", ambassadorRoutes);
 app.use("/api/certifications", certificationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/parent", parentRoutes);
+app.use("/api/access", accessRoutes);
+app.use("/api/partner", partnerRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });

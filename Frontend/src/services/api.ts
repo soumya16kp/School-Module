@@ -7,7 +7,11 @@ const api = axios.create({
 
 // Add token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('school_token');
+  const isParentRoute = config.url?.startsWith('/parent');
+  const token = isParentRoute 
+    ? localStorage.getItem('parent_token') 
+    : localStorage.getItem('school_token');
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -153,5 +157,43 @@ export const certificationService = {
   },
   delete: async (id: number) => {
     await api.delete(`/certifications/${id}`);
+  }
+};
+
+export const parentService = {
+  login: async (phone: string) => {
+    const response = await api.post('/parent/login', { phone });
+    if (response.data.token) {
+      localStorage.setItem('parent_token', response.data.token);
+      localStorage.setItem('parent_info', JSON.stringify(response.data.parent));
+    }
+    return response.data;
+  },
+  getChildren: async () => {
+    const response = await api.get('/parent/children');
+    return response.data;
+  },
+  getChildDashboard: async (id: number) => {
+    const response = await api.get(`/parent/children/${id}`);
+    return response.data;
+  },
+  logout: () => {
+    localStorage.removeItem('parent_token');
+    localStorage.removeItem('parent_info');
+  }
+};
+
+export const partnerService = {
+  getDonations: async () => {
+    const response = await api.get('/partner/donations');
+    return response.data;
+  },
+  sponsor: async (data: any) => {
+    const response = await api.post('/partner/sponsor', data);
+    return response.data;
+  },
+  getSchools: async () => {
+    const response = await api.get('/partner/schools');
+    return response.data;
   }
 };

@@ -6,10 +6,15 @@ const MIN_SCREENED = 30; // OQ-05: minimum cohort for prevalence metrics
 export class DashboardService {
   static async getOverview(schoolId: number, academicYear: string) {
     const [children, healthRecords, events, certifications] = await Promise.all([
-      prisma.child.findMany({ where: { schoolId }, select: { id: true } }),
+      prisma.child.findMany({ 
+        where: { schoolId }, 
+        select: { id: true } 
+      }),
       prisma.healthRecord.findMany({
-        where: { child: { schoolId }, academicYear },
-        include: { child: { select: { id: true } } },
+        where: { 
+          child: { schoolId }, 
+          academicYear 
+        }
       }),
       prisma.event.findMany({
         where: { schoolId, academicYear },
@@ -23,10 +28,13 @@ export class DashboardService {
     const totalStudents = children.length;
     const studentIds = new Set(children.map((c: any) => c.id));
 
-    // Students with annual checkup: HealthRecord with checkupDate in this academic year
+    // Filter health records that belong to the current student cohort
+    const validRecords = healthRecords.filter((r: any) => studentIds.has(r.childId));
+
     const studentsWithCheckup = new Set(
-      healthRecords.filter((r: any) => r.checkupDate != null && studentIds.has(r.childId)).map((r: any) => r.childId)
+      validRecords.filter((r: any) => r.checkupDate != null).map((r: any) => r.childId)
     ).size;
+
     const coveragePercent = totalStudents > 0 ? Math.round((studentsWithCheckup / totalStudents) * 100) : 0;
 
     // Drill completion: completed drills of required types
@@ -39,18 +47,22 @@ export class DashboardService {
     const drillPercent = Math.round((drillCompleted / drillRequired) * 100);
 
     // Prevalence (for high-risk): need screened count and flagged count per domain
-    const screened = healthRecords.filter((r: any) => r.checkupDate != null).length;
-    const dentalFlagged = healthRecords.filter(
+    const screenedRecords = validRecords.filter((r: any) => r.checkupDate != null);
+    const screened = screenedRecords.length;
+    
+    const dentalFlagged = screenedRecords.filter(
       (r: any) =>
         r.dentalOverallHealth &&
         ["MODERATE_ISSUES", "SEVERE_ISSUES"].includes(r.dentalOverallHealth)
     ).length;
-    const visionFlagged = healthRecords.filter(
+    
+    const visionFlagged = screenedRecords.filter(
       (r: any) =>
         r.visionOverall &&
         ["REQUIRES_FURTHER_EVAL", "UNDER_TREATMENT"].includes(r.visionOverall)
     ).length;
-    const bmiHigh = healthRecords.filter(
+    
+    const bmiHigh = screenedRecords.filter(
       (r: any) => r.bmiCategory && ["OVERWEIGHT", "OBESE"].includes(r.bmiCategory)
     ).length;
 
@@ -128,21 +140,17 @@ export class DashboardService {
     });
 
     const overviews = await Promise.all(
-      schools.map(async (s) => {
+      schools.map(async (s: any) => {
         const ay = academicYear || s.academicYear || "2024-2025";
         const overview = await DashboardService.getOverview(s.id, ay);
         return {
-          schoolId: s.id,
-          schoolName: s.schoolName,
-          city: s.city,
-          state: s.state,
-          studentStrength: s.studentStrength,
+          ...s,
           ...overview,
         };
       })
     );
 
     // PRD OQ-04: show only school-level aggregates, min cohort N=10
-    return overviews.filter((o) => (o.totalStudents ?? 0) >= 10);
+    return overviews.filter((o: any) => (o.totalStudents ?? 0) >= 10);
   }
 }

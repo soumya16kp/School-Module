@@ -1,16 +1,11 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "sqlite"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -18,155 +13,160 @@ model User {
   email     String   @unique
   password  String
   name      String
-  role      UserRole @default(SCHOOL_ADMIN)
-  school    School?  @relation(fields: [schoolId], references: [id])
   schoolId  Int?     @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  role      UserRole @default(SCHOOL_ADMIN)
+  school    School?  @relation(fields: [schoolId], references: [id])
+  donations Donation[]
 }
 
 model School {
-  id                      Int      @id @default(autoincrement())
-  registrationNo          String   @unique // Example: SCH-WB-20250805-000056
-  schoolName              String
-  udiseCode               String?
-  schoolType              String   // Government / Private / International
-  boardAffiliation        String   // CBSE, ICSE, IB, State, etc.
-  principalName           String
-  principalContact        String
-  schoolEmail             String   @unique
-  studentStrength         Int
-  address                 String
-  state                   String
-  city                    String
-  pincode                 String
-  academicYear            String?  // Current academic year, e.g. "2024-2025"
-  channel                 String?  // Direct / Healthcare Partner / CSR
-  pocName                 String?
-  pocDesignation          String?
-  pocMobile               String?
-  pocEmail                String?
-  user                    User?
-  children                Child[]
-  events                  Event[]
-  certifications          Certification[]
-  ambassadors             AmbassadorDirectory[]
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  id               Int                   @id @default(autoincrement())
+  registrationNo   String                @unique
+  schoolName       String
+  udiseCode        String?
+  schoolType       String
+  boardAffiliation String
+  principalName    String
+  principalContact String
+  schoolEmail      String                @unique
+  studentStrength  Int
+  address          String
+  state            String
+  city             String
+  pincode          String
+  pocName          String?
+  pocDesignation   String?
+  pocMobile        String?
+  pocEmail         String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  academicYear     String?
+  channel          String?
+  ambassadors      AmbassadorDirectory[]
+  certifications   Certification[]
+  children         Child[]
+  events           Event[]
+  user             User?
+  donations        Donation[]
 }
 
 model Child {
-  id            Int      @id @default(autoincrement())
-  registrationNo String   @unique // Example: CHD-KA-20250805-000045
-  name          String
-  class         Int
-  section       String
-  fatherNumber  String
-  motherNumber  String
-  emailId       String?
-  mobile        String
-  gender        String
-  status        String   @default("Pending") // Done, Pending, Absent
-  notes         String?
-  school        School   @relation(fields: [schoolId], references: [id])
-  schoolId      Int
-  healthRecords HealthRecord[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             Int              @id @default(autoincrement())
+  registrationNo String           @unique
+  name           String
+  class          Int
+  section        String
+  fatherNumber   String
+  motherNumber   String
+  emailId        String?
+  mobile         String
+  gender         String
+  bloodGroup     String?
+  allergicTo     String?
+  status         String           @default("Pending")
+  notes          String?
+  schoolId       Int
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  school         School           @relation(fields: [schoolId], references: [id])
+  healthRecords  HealthRecord[]
+  accessRequests AccessRequest[]
+}
+
+model AccessRequest {
+  id             Int                 @id @default(autoincrement())
+  childId        Int
+  requesterName  String
+  requesterPhone String
+  requesterRole  String              // e.g. "Doctor", "Nurse", "Teacher"
+  reason         String
+  status         AccessRequestStatus @default(PENDING)
+  accessToken    String?             @unique // set when approved
+  expiresAt      DateTime?           // token expiry
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  child          Child               @relation(fields: [childId], references: [id])
 }
 
 model HealthRecord {
-  id                  Int      @id @default(autoincrement())
-  academicYear        String   // "2024-2025"
-  checkupDate         DateTime? // Date the checkup was performed
-  height              Float?   // in cm
-  weight              Float?   // in kg
-  bmi                 Float?   // derived or entered
-  bmiPercentile       Float?   // 0-100, based on WHO/ICMR charts
-  bmiCategory         String?  // UNDERWEIGHT / NORMAL / OVERWEIGHT / OBESE
-
-  // Dental screening
-  dentalCariesIndex   Float?   // 0.0-32.0 (DMFT or similar index)
-  dentalHygieneScore  String?  // GOOD / FAIR / POOR
-  dentalOverallHealth String?  // HEALTHY / MILD_ISSUES / MODERATE_ISSUES / SEVERE_ISSUES
-  dentalReferralNeeded Boolean? @default(false)
-  dentalReferralReason String? // MULTIPLE_CARIES / PAIN / GINGIVITIS / MALOCCLUSION / OTHER (comma-separated if multiple)
+  id                   Int       @id @default(autoincrement())
+  academicYear         String
+  checkupDate          DateTime?
+  height               Float?
+  weight               Float?
+  bmi                  Float?
+  dentalOverallHealth  String?
+  eyeCheckup           String?
+  eyeVisionLeft        String?
+  eyeVisionRight       String?
+  immunization         Boolean   @default(false)
+  mentalWellness       Boolean   @default(false)
+  nutrition            Boolean   @default(false)
+  menstrualHygiene     Boolean   @default(false)
+  reportFile           String?
+  childId              Int
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  bmiCategory          String?
+  bmiPercentile        Float?
+  dentalCariesIndex    Float?
+  dentalHygieneScore   String?
   dentalNotes          String?
-
-  // Vision screening
-  eyeCheckup          String?
-  eyeVisionLeft       String?
-  eyeVisionRight      String?
-  visionOverall       String?  // NORMAL / REQUIRES_FURTHER_EVAL / UNDER_TREATMENT
-  visionReferralNeeded Boolean? @default(false)
-  visionNotes         String?
-
-  // Program attendance (per academic year, checkbox-style)
-  immunization        Boolean  @default(false) // Immunization / immunity program attended
-  mentalWellness      Boolean  @default(false) // Mental wellness session attended
-  nutrition           Boolean  @default(false) // Nutrition program attended
-  menstrualHygiene    Boolean  @default(false) // Menstrual hygiene session attended (where applicable)
-
-  reportFile          String?  // New field for filename/path
-  child               Child    @relation(fields: [childId], references: [id])
-  childId             Int
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  dentalReferralNeeded Boolean?  @default(false)
+  dentalReferralReason String?
+  visionNotes          String?
+  visionOverall        String?
+  visionReferralNeeded Boolean?  @default(false)
+  child                Child     @relation(fields: [childId], references: [id])
 }
 
-// Events: checkups, screenings, drills, expert sessions, etc.
 model Event {
-  id             Int       @id @default(autoincrement())
-  school         School    @relation(fields: [schoolId], references: [id])
+  id             Int                  @id @default(autoincrement())
   schoolId       Int
   type           EventType
   title          String
   description    String?
-  academicYear   String    // "2024-2025"
+  academicYear   String
   scheduledAt    DateTime?
   completedAt    DateTime?
-  attendanceJson Json?     // aggregated attendance/outcomes (per class, counts, etc.)
-
-  ambassador           AmbassadorDirectory? @relation(fields: [ambassadorId], references: [id])
-  ambassadorId        Int?
-
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  attendanceJson Json?
+  ambassadorId   Int?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  ambassador     AmbassadorDirectory? @relation(fields: [ambassadorId], references: [id])
+  school         School               @relation(fields: [schoolId], references: [id])
+  donations      Donation[]
 }
 
-// Directory of external/internal partners for drills and programs
 model AmbassadorDirectory {
-  id           Int           @id @default(autoincrement())
+  id           Int            @id @default(autoincrement())
   type         AmbassadorType
   name         String
   organization String?
   phone        String?
   email        String?
-  serviceArea  String?       // e.g. district / block / cluster
-  active       Boolean       @default(true)
+  serviceArea  String?
+  active       Boolean        @default(true)
   notes        String?
-
-  // Optional scoping to a school; if null, treated as global
-  school    School?  @relation(fields: [schoolId], references: [id])
-  schoolId  Int?
-
-  events    Event[]
+  schoolId     Int?
+  school       School?        @relation(fields: [schoolId], references: [id])
+  events       Event[]
 }
 
-// School-level certifications (UDISE, safety drills, etc.)
 model Certification {
   id           Int                 @id @default(autoincrement())
-  school       School              @relation(fields: [schoolId], references: [id])
   schoolId     Int
   type         CertificationType
   status       CertificationStatus
-  academicYear String              // "2024-2025"
+  academicYear String
   issuedAt     DateTime?
   validUntil   DateTime?
   metadata     Json?
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  school       School              @relation(fields: [schoolId], references: [id])
 }
 
 enum EventType {
@@ -210,7 +210,12 @@ enum CertificationStatus {
   REVOKED
 }
 
-// User roles (PRD §4.1)
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
 enum UserRole {
   SCHOOL_ADMIN
   PRINCIPAL
@@ -218,4 +223,20 @@ enum UserRole {
   NURSE_COUNSELLOR
   DISTRICT_VIEWER
   WOMBTO18_OPS
+  PARTNER
+}
+
+model Donation {
+  id          Int      @id @default(autoincrement())
+  partnerId   Int
+  schoolId    Int
+  eventId     Int?
+  amount      Float
+  type        String   // "EVENT", "CHECKUP", "GENERAL"
+  status      String   // "COMPLETED", "PENDING"
+  date        DateTime @default(now())
+  description String?
+  user        User     @relation(fields: [partnerId], references: [id])
+  school      School   @relation(fields: [schoolId], references: [id])
+  event       Event?   @relation(fields: [eventId], references: [id])
 }

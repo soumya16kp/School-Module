@@ -9,12 +9,13 @@ const RegisterUser: React.FC = () => {
     name: '',
     email: '',
     password: '',
+    role: 'SCHOOL_ADMIN',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -42,8 +43,8 @@ const RegisterUser: React.FC = () => {
         style={{ width: '100%', maxWidth: '450px', padding: '2.5rem' }}
       >
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Create Admin Account</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Start your school registration process</p>
+          <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Create Account</h1>
+          <p style={{ color: 'var(--text-muted)' }}>Join our platform as an admin or partner</p>
         </div>
 
         {error && <div style={{ background: '#fee2e2', color: '#dc2626', padding: '0.75rem', borderRadius: '10px', marginBottom: '1.5rem', fontSize: '0.9rem', textAlign: 'center' }}>{error}</div>}
@@ -60,6 +61,19 @@ const RegisterUser: React.FC = () => {
           <div className="form-group">
             <label><Lock size={14} style={{ marginRight: '5px', verticalAlign: 'middle' }} /> Password</label>
             <input type="password" name="password" placeholder="••••••••" onChange={handleChange} required />
+          </div>
+
+          <div className="form-group">
+            <label>Registration Role</label>
+            <select 
+              name="role" 
+              value={formData.role} 
+              onChange={handleChange}
+              style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)' }}
+            >
+              <option value="SCHOOL_ADMIN">School Administrator</option>
+              <option value="PARTNER">Partner / Sponsor</option>
+            </select>
           </div>
           
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>

@@ -75,8 +75,9 @@ const ChildRecords: React.FC = () => {
         notes: ''
       });
       fetchChildren();
-    } catch (err) {
-      alert('Error adding child record');
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.message || 'Error adding child record';
+      alert(`Fail: ${errorMsg}`);
       console.error(err);
     }
   };
