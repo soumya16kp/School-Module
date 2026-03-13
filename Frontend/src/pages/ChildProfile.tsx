@@ -61,7 +61,7 @@ const ChildProfile: React.FC = () => {
       fd.append(key, (formData as any)[key]);
     });
     fd.append('bmi', bmi || '');
-    if (reportFile) {
+    if (reportFile) {  
       fd.append('reportFile', reportFile);
     }
 

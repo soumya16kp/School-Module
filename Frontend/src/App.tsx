@@ -5,8 +5,9 @@ import RegisterSchool from './pages/RegisterSchool';
 import Dashboard from './pages/Dashboard';
 import ChildProfile from './pages/ChildProfile';
 import { HealthProvider } from './context/HealthContext';
+import type { ReactNode } from 'react';
 
-const PrivateRoute = ({ children }: { children: JSX.Element }) => {
+const PrivateRoute = ({ children }: { children: ReactNode }) => {
   const token = localStorage.getItem('school_token');
   return token ? children : <Navigate to="/" />;
 };

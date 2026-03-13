@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
-import { User, Mail, Lock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const RegisterUser: React.FC = () => {
