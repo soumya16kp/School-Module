@@ -1,6 +1,5 @@
 import prisma from "../prismaClient";
 import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import { sendOtpSms } from "./smsService";
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
@@ -17,14 +16,15 @@ export class ParentService {
       throw new Error("No student record found with this phone number. Please contact the school.");
     }
 
-    const code = crypto.randomInt(100000, 999999).toString();
+    const code = "356325"; // hardcoded for demo
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
 
     await prisma.otpCode.create({
       data: { phone, code, expiresAt }
     });
 
-    await sendOtpSms(phone, code);
+    // Skip SMS when using hardcoded demo OTP
+    if (code !== "356325") await sendOtpSms(phone, code);
 
     return { sent: true, ...(IS_DEV && !process.env.SMS_PROVIDER ? { devOtp: code } : {}) };
   }
