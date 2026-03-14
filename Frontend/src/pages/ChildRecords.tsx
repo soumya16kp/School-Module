@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { childService, cardService, dashboardService } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import { Search, Plus, Phone, GraduationCap, CheckCircle2, Clock, XCircle, ChevronRight, User, CreditCard, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 const ChildRecords: React.FC = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [children, setChildren] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showBulkCardModal, setShowBulkCardModal] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [bulkCardLoading, setBulkCardLoading] = useState(false);
+  const [bulkCardFilters, setBulkCardFilters] = useState({ class: '' as string, section: '' });
   const [exportFilters, setExportFilters] = useState({ format: 'csv' as 'csv' | 'pdf', academicYear: '', class: '' as string, section: '', domain: 'all' });
   const [formData, setFormData] = useState({
     name: '',
@@ -47,8 +53,9 @@ const ChildRecords: React.FC = () => {
       setLoading(true);
       const data = await childService.getAll(query);
       setChildren(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      toast(err.response?.data?.message || err.message || 'Failed to load students', 'error');
     } finally {
       setLoading(false);
     }
@@ -79,8 +86,8 @@ const ChildRecords: React.FC = () => {
       });
       fetchChildren();
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || err.message || 'Error adding child record';
-      alert(`Fail: ${errorMsg}`);
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Error adding child record';
+      toast(errorMsg, 'error');
       console.error(err);
     }
   };
@@ -105,12 +112,32 @@ const ChildRecords: React.FC = () => {
         domain: exportFilters.domain !== 'all' ? exportFilters.domain : undefined,
       });
       setShowExportModal(false);
+      toast('Report downloaded', 'success');
     } catch (err: any) {
-      alert(err.message || 'Export failed');
+      toast(err.response?.data?.message || err.message || 'Export failed', 'error');
     } finally {
       setExportLoading(false);
     }
   };
+
+  const handleBulkIdCards = async () => {
+    setBulkCardLoading(true);
+    try {
+      await cardService.exportBulk({
+        class: bulkCardFilters.class ? parseInt(bulkCardFilters.class) : undefined,
+        section: bulkCardFilters.section || undefined,
+      });
+      setShowBulkCardModal(false);
+      toast('ID cards downloaded', 'success');
+    } catch (err: any) {
+      toast(err.response?.data?.message || err.message || 'Failed to download ID cards', 'error');
+    } finally {
+      setBulkCardLoading(false);
+    }
+  };
+
+  const uniqueClasses = Array.from(new Set(children.map((c: any) => c.class))).sort((a, b) => a - b);
+  const uniqueSections = Array.from(new Set(children.map((c: any) => c.section))).sort();
 
   const openIdCard = async (e: React.MouseEvent, childId: number) => {
     e.stopPropagation();
@@ -118,9 +145,9 @@ const ChildRecords: React.FC = () => {
       const token = await cardService.ensureToken(childId);
       const url = `${window.location.origin}/card/${token}`;
       window.open(url, '_blank', 'noopener');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to generate ID card');
+      toast(err.response?.data?.message || err.message || 'Failed to generate ID card', 'error');
     }
   };
 
@@ -148,6 +175,13 @@ const ChildRecords: React.FC = () => {
           <p style={{ color: 'var(--text-muted)' }}>Manage and monitor student health profiles and registrations.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => setShowBulkCardModal(true)}
+            disabled={children.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--primary)', fontWeight: 600, cursor: children.length === 0 ? 'not-allowed' : 'pointer' }}
+          >
+            <CreditCard size={20} /> Download All ID Cards
+          </button>
           <button 
             onClick={() => setShowExportModal(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer' }}
@@ -190,7 +224,9 @@ const ChildRecords: React.FC = () => {
       {/* Records List View */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {loading ? (
-          <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 600 }}>Loading student records...</div>
+          <div className="glass-card" style={{ padding: '4rem', background: 'white' }}>
+            <LoadingSpinner label="Loading student records..." />
+          </div>
         ) : children.length === 0 ? (
           <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: 'white', color: 'var(--text-muted)', border: '2px dashed var(--border)' }}>
              <User size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
@@ -204,14 +240,14 @@ const ChildRecords: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               key={child.id}
-              className="glass-card"
+              className="glass-card record-card"
               onClick={() => navigate(`/child/${child.id}`)}
               style={{ 
                 background: 'white', 
                 padding: '1.5rem', 
                 cursor: 'pointer',
                 display: 'grid',
-                gridTemplateColumns: 'minmax(250px, 2fr) 1.5fr 1fr 1.5fr 40px',
+                gridTemplateColumns: 'minmax(0, 2fr) 1.5fr 1fr 1.5fr 40px',
                 gap: '1.5rem',
                 alignItems: 'center',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -427,6 +463,68 @@ const ChildRecords: React.FC = () => {
                   <button type="button" onClick={() => setShowAddModal(false)} className="btn" style={{ background: '#f1f5f9' }}>Cancel</button>
                 </div>
               </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk ID Card Modal */}
+      <AnimatePresence>
+        {showBulkCardModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }} onClick={() => setShowBulkCardModal(false)}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-card" 
+              style={{ background: 'white', width: '100%', maxWidth: '400px', padding: '0', borderRadius: '16px', overflow: 'hidden' }}
+            >
+              <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Download ID Cards</h3>
+                <button onClick={() => setShowBulkCardModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                  <XCircle size={20} color="var(--text-muted)" />
+                </button>
+              </div>
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Download a PDF with one ID card per page. Optionally filter by class or section.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Class (optional)</label>
+                    <select 
+                      value={bulkCardFilters.class}
+                      onChange={(e) => setBulkCardFilters({ ...bulkCardFilters, class: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                    >
+                      <option value="">All classes</option>
+                      {uniqueClasses.map((c: number) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Section (optional)</label>
+                    <select 
+                      value={bulkCardFilters.section}
+                      onChange={(e) => setBulkCardFilters({ ...bulkCardFilters, section: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                    >
+                      <option value="">All sections</option>
+                      {uniqueSections.map((s: string) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <button onClick={handleBulkIdCards} disabled={bulkCardLoading} className="btn btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <CreditCard size={18} /> {bulkCardLoading ? 'Generating...' : 'Download PDF'}
+                  </button>
+                  <button onClick={() => setShowBulkCardModal(false)} className="btn" style={{ background: '#f1f5f9' }}>Cancel</button>
+                </div>
               </div>
             </motion.div>
           </div>

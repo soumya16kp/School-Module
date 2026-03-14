@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { eventService } from '../services/api';
-import { CalendarPlus, Plus, XCircle, Calendar, User, CheckCircle2, Users } from 'lucide-react';
+import { getBandLabelsForEventType } from '../config/ageBands';
+import { CalendarPlus, Plus, XCircle, Calendar, User, CheckCircle2, Users, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const EVENT_TYPES = [
@@ -137,12 +138,16 @@ const Events: React.FC = () => {
 
   return (
     <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', background: 'linear-gradient(90deg, var(--primary) 0%, #ec4899 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             Events
           </h2>
-          <p style={{ color: 'var(--text-muted)' }}>Schedule checkups, screenings, drills, and expert sessions.</p>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Schedule checkups, screenings, drills, and expert sessions.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f0fdf4', borderRadius: '10px', fontSize: '0.8rem', color: '#166534', border: '1px solid #bbf7d0' }}>
+            <Info size={16} />
+            <span><strong>Age bands:</strong> K-5, 6-8, 9-12. HPV for 9-12; CPR/First-aid for 6-12.</span>
+          </div>
         </div>
         <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Plus size={20} /> Add Event
@@ -302,6 +307,10 @@ const Events: React.FC = () => {
                       <option key={t} value={t}>{formatEventType(t)}</option>
                     ))}
                   </select>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Info size={14} />
+                    Applies to grades: {getBandLabelsForEventType(formData.type).join(', ')}
+                  </p>
                 </div>
                 <div className="form-group">
                   <label>Title</label>

@@ -223,6 +223,22 @@ export const cardService = {
   getByToken: async (token: string) => {
     const response = await api.get(`/card/${token}`);
     return response.data;
+  },
+  exportBulk: async (params?: { class?: number; section?: string }) => {
+    const token = localStorage.getItem('school_token');
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
+    const origin = window.location.origin;
+    const qs = new URLSearchParams({ baseUrl: origin });
+    if (params?.class != null) qs.set('class', String(params.class));
+    if (params?.section) qs.set('section', params.section);
+    const res = await fetch(`${base}/card/bulk?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'id-cards-bulk.pdf';
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 };
 

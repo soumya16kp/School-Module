@@ -1,6 +1,7 @@
 import prisma from "../prismaClient";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { sendOtpSms } from "./smsService";
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
 const IS_DEV = process.env.NODE_ENV !== "production";
@@ -23,12 +24,9 @@ export class ParentService {
       data: { phone, code, expiresAt }
     });
 
-    // TODO: Integrate SMS provider (Twilio, MSG91, etc.) to send code
-    if (IS_DEV) {
-      console.log(`[DEV] OTP for ${phone}: ${code}`);
-    }
+    await sendOtpSms(phone, code);
 
-    return { sent: true, ...(IS_DEV ? { devOtp: code } : {}) };
+    return { sent: true, ...(IS_DEV && !process.env.SMS_PROVIDER ? { devOtp: code } : {}) };
   }
 
   static async verifyOtp(phone: string, code: string) {

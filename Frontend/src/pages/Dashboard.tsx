@@ -36,6 +36,7 @@ const DetailRow = ({ label, value }: { label: string; value?: string | number | 
   </div>
 );
 import { motion } from 'framer-motion';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import ChildRecords from './ChildRecords';
 import Events from './Events';
 import Ambassadors from './Ambassadors';
@@ -119,7 +120,11 @@ const Dashboard: React.FC = () => {
     window.location.href = '/';
   };
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '1.2rem', color: 'var(--primary)' }}>Loading Dashboard...</div>;
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+      <LoadingSpinner label="Loading Dashboard..." />
+    </div>
+  );
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>

@@ -6,6 +6,31 @@ import prisma from "../prismaClient";
 
 const router = Router();
 
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+// GET /api/card/bulk – school auth: download all ID cards as PDF (must be before /:token)
+router.get("/bulk", authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    const school = await SchoolService.getSchoolByUserId(req.user.id);
+    if (!school) return res.status(404).json({ message: "School not found" });
+
+    const classNum = req.query.class != null ? parseInt(String(req.query.class)) : undefined;
+    const section = (req.query.section as string) || undefined;
+    const baseUrl = (req.query.baseUrl as string) || FRONTEND_URL;
+
+    const pdf = await CardService.generateBulkPdf(school.id, baseUrl, {
+      class: classNum,
+      section: section || undefined,
+    });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'attachment; filename="id-cards-bulk.pdf"');
+    res.send(pdf);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
 // GET /api/card/:token – PUBLIC: health ID card data (no auth, scan opens this)
 router.get("/:token", async (req, res) => {
   try {

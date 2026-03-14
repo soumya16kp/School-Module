@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useHealthContext } from '../context/HealthContext';
 import { cardService } from '../services/api';
-import { Activity, HeartPulse, ShieldCheck, Calendar, ArrowLeft, Phone, Mail, GraduationCap, Stethoscope, Droplets, Apple, BrainCircuit, Syringe, Eye, CreditCard } from 'lucide-react';
+import { Activity, HeartPulse, ShieldCheck, Calendar, ArrowLeft, Phone, Mail, GraduationCap, Stethoscope, Droplets, Apple, BrainCircuit, Syringe, Eye, CreditCard, Info } from 'lucide-react';
+import { getEventTypesForClass } from '../config/ageBands';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 
@@ -141,7 +143,11 @@ const ChildProfile: React.FC = () => {
     }
   };
 
-  if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--primary)' }}>Loading Profile...</div>;
+  if (loading) return (
+    <div style={{ padding: '3rem', display: 'flex', justifyContent: 'center' }}>
+      <LoadingSpinner label="Loading Profile..." />
+    </div>
+  );
   if (!child) return <div style={{ padding: '3rem', textAlign: 'center' }}>Child not found</div>;
 
   return (
@@ -257,6 +263,16 @@ const ChildProfile: React.FC = () => {
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 Showing data for <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{selectedYear}</span> session
               </div>
+            </div>
+          )}
+
+          {/* Recommended screenings (age-band protocol) */}
+          {child && (
+            <div style={{ padding: '0.75rem 1rem', background: '#eff6ff', borderRadius: '12px', fontSize: '0.85rem', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+              <Info size={16} />
+              <span>
+                <strong>Class {child.class}-{child.section}:</strong> Recommended screenings – {getEventTypesForClass(child.class).slice(0, 6).map(t => t.replace(/_/g, ' ').toLowerCase()).join(', ')}{getEventTypesForClass(child.class).length > 6 ? '...' : ''}
+              </span>
             </div>
           )}
 

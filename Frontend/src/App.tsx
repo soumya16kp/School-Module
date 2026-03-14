@@ -10,6 +10,7 @@ import ParentDashboard from './pages/ParentDashboard';
 import EmergencyAccess from './pages/EmergencyAccess';
 import CardView from './pages/CardView';
 import { HealthProvider } from './context/HealthContext';
+import { ToastProvider } from './context/ToastContext';
 import type { ReactNode } from 'react';
 
 const PrivateRoute = ({ children }: { children: ReactNode }) => {
@@ -24,6 +25,7 @@ const ParentPrivateRoute = ({ children }: { children: ReactNode }) => {
 
 function App() {
   return (
+    <ToastProvider>
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
@@ -81,6 +83,7 @@ function App() {
         <Route path="/card/:token" element={<CardView />} />
       </Routes>
     </Router>
+    </ToastProvider>
   );
 }
 
