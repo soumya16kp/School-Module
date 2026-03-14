@@ -16,7 +16,7 @@ import bcrypt from "bcrypt";
 const prisma = new PrismaClient();
 
 const DEMO_PASSWORD = "Demo@1234";
-const PARENT_PHONE = "+919876500000";
+const PARENT_PHONE = "7984060375";
 const ACADEMIC_YEAR = "2024-2025";
 
 async function main() {
@@ -153,7 +153,7 @@ async function main() {
   for (const c of childData) {
     const child = await prisma.child.upsert({
       where: { registrationNo: c.registrationNo },
-      update: {},
+      update: { fatherNumber: c.fatherNumber, motherNumber: c.motherNumber },
       create: {
         ...c,
         emailId: `${c.name.toLowerCase().replace(/\s/g, ".")}@email.com`,
@@ -532,7 +532,7 @@ async function main() {
   console.log("  admin@demo-school.com  - School Admin");
   console.log("  partner@demo.com       - Partner");
   console.log("  district@demo.com      - District Viewer");
-  console.log("\nParent OTP: use phone", PARENT_PHONE, "(Arjun Sharma)");
+  console.log("\nParent OTP: use phone", PARENT_PHONE, "or +91" + PARENT_PHONE, "(Arjun Sharma)");
 }
 
 main()
