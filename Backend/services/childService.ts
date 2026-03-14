@@ -30,11 +30,13 @@ export class ChildService {
     });
   }
 
-  static async getChildrenBySchool(schoolId: number, search?: string) {
+  static async getChildrenBySchool(schoolId: number, search?: string, teacherClass?: number, teacherSection?: string) {
     const isNumericSearch = !isNaN(parseInt(search || ""));
     return prisma.child.findMany({
       where: {
         schoolId: schoolId,
+        class: teacherClass !== undefined ? teacherClass : undefined,
+        section: teacherSection !== undefined ? teacherSection : undefined,
         OR: search ? [
           { name: { contains: search } },
           { section: { contains: search } },

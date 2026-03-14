@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Globe, Heart, TrendingUp, Gift, School, LogOut, ArrowRight, User } from 'lucide-react';
 import { partnerService, authService } from '../services/api';
 import PartnerSchools from '../components/PartnerSchools';
@@ -14,6 +15,13 @@ const PartnerDashboard: React.FC = () => {
 
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && user.role !== 'PARTNER') {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     partnerService.getDonations()

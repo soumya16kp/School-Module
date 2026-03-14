@@ -39,7 +39,9 @@ export class AuthService {
         id: user.id, 
         email: user.email, 
         role: user.role, 
-        schoolId: user.school?.id 
+        schoolId: user.school?.id,
+        assignedClass: user.assignedClass,
+        assignedSection: user.assignedSection
       },
       JWT_SECRET,
       { expiresIn: "24h" }
@@ -52,6 +54,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        assignedClass: user.assignedClass,
+        assignedSection: user.assignedSection,
         school: user.school
       },
     };

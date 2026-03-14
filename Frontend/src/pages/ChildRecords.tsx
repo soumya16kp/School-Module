@@ -10,6 +10,10 @@ const ChildRecords: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [children, setChildren] = useState<any[]>([]);
+  const userStr = localStorage.getItem('school_user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const role = user?.role || '';
+  
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -175,26 +179,30 @@ const ChildRecords: React.FC = () => {
           <p style={{ color: 'var(--text-muted)' }}>Manage and monitor student health profiles and registrations.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button 
-            onClick={() => setShowBulkCardModal(true)}
-            disabled={children.length === 0}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--primary)', fontWeight: 600, cursor: children.length === 0 ? 'not-allowed' : 'pointer' }}
-          >
-            <CreditCard size={20} /> Download All ID Cards
-          </button>
-          <button 
-            onClick={() => setShowExportModal(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer' }}
-          >
-            <Download size={20} /> Export Report
-          </button>
-          <button 
-            onClick={() => setShowAddModal(true)} 
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', boxShadow: '0 4px 15px var(--primary-light)' }}
-          >
-            <Plus size={20} /> Add New Student
-          </button>
+          {['SCHOOL_ADMIN', 'PRINCIPAL'].includes(role) && (
+            <>
+              <button 
+                onClick={() => setShowBulkCardModal(true)}
+                disabled={children.length === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--primary)', fontWeight: 600, cursor: children.length === 0 ? 'not-allowed' : 'pointer' }}
+              >
+                <CreditCard size={20} /> Download All ID Cards
+              </button>
+              <button 
+                onClick={() => setShowExportModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer' }}
+              >
+                <Download size={20} /> Export Report
+              </button>
+              <button 
+                onClick={() => setShowAddModal(true)} 
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', boxShadow: '0 4px 15px var(--primary-light)' }}
+              >
+                <Plus size={20} /> Add New Student
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -306,15 +314,17 @@ const ChildRecords: React.FC = () => {
                   >
                     <CreditCard size={16} /> ID Card
                   </button>
-                  <select 
-                    value={child.status}
-                    onChange={(e) => updateStatus(child.id, e.target.value)}
-                    style={{ fontSize: '0.8rem', padding: '8px 12px', borderRadius: '8px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-                  >
-                    <option value="Pending">🕒 Pending</option>
-                    <option value="Done">✅ Done</option>
-                    <option value="Absent">❌ Absent</option>
-                  </select>
+                  {['SCHOOL_ADMIN', 'PRINCIPAL', 'STAFF'].includes(role) && (
+                    <select 
+                      value={child.status}
+                      onChange={(e) => updateStatus(child.id, e.target.value)}
+                      style={{ fontSize: '0.8rem', padding: '8px 12px', borderRadius: '8px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      <option value="Pending">🕒 Pending</option>
+                      <option value="Done">✅ Done</option>
+                      <option value="Absent">❌ Absent</option>
+                    </select>
+                  )}
                   <StatusBadge status={child.status} />
               </div>
 

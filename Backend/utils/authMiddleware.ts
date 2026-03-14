@@ -9,21 +9,23 @@ export interface AuthRequest extends Request {
     email: string;
     role: string;
     schoolId?: number;
+    assignedClass?: number;
+    assignedSection?: string;
   };
 }
 
-// Role helpers (PRD §4.1)
+// Role helpers
 export const canViewHealth = (role: string) =>
-  ["SCHOOL_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "NURSE_COUNSELLOR", "WOMBTO18_OPS", "DISTRICT_VIEWER"].includes(role);
+  ["SCHOOL_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "STAFF", "WOMBTO18_OPS", "DISTRICT_VIEWER"].includes(role);
 
 export const canEditHealth = (role: string) =>
-  ["SCHOOL_ADMIN", "PRINCIPAL", "NURSE_COUNSELLOR", "WOMBTO18_OPS"].includes(role);
+  ["SCHOOL_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "STAFF", "WOMBTO18_OPS"].includes(role);
 
 export const canScheduleEvents = (role: string) =>
   ["SCHOOL_ADMIN", "PRINCIPAL", "WOMBTO18_OPS"].includes(role);
 
 export const canExportReports = (role: string) =>
-  ["SCHOOL_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "NURSE_COUNSELLOR", "WOMBTO18_OPS", "DISTRICT_VIEWER"].includes(role);
+  ["SCHOOL_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "STAFF", "WOMBTO18_OPS", "DISTRICT_VIEWER"].includes(role);
 
 export const canManageAmbassadors = (role: string) =>
   ["SCHOOL_ADMIN", "PRINCIPAL", "WOMBTO18_OPS"].includes(role);

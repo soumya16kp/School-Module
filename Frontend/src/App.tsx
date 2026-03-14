@@ -5,8 +5,10 @@ import RegisterSchool from './pages/RegisterSchool';
 import Dashboard from './pages/Dashboard';
 import ChildProfile from './pages/ChildProfile';
 import ParentLogin from './pages/ParentLogin';
+import PartnerLogin from './pages/PartnerLogin';
 import ChildSelection from './pages/ChildSelection';
 import ParentDashboard from './pages/ParentDashboard';
+import PartnerDashboard from './pages/PartnerDashboard';
 import EmergencyAccess from './pages/EmergencyAccess';
 import CardView from './pages/CardView';
 import { HealthProvider } from './context/HealthContext';
@@ -81,6 +83,17 @@ function App() {
 
         {/* Public Health ID Card (no auth - scan QR opens this) */}
         <Route path="/card/:token" element={<CardView />} />
+
+        {/* Partner Portal Routes */}
+        <Route path="/partner-login" element={<PartnerLogin />} />
+        <Route 
+          path="/partner/dashboard" 
+          element={
+            <PrivateRoute>
+              <PartnerDashboard />
+            </PrivateRoute>
+          } 
+        />
       </Routes>
     </Router>
     </ToastProvider>

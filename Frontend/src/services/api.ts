@@ -264,3 +264,17 @@ export const partnerService = {
     return response.data;
   }
 };
+
+export const staffService = {
+  list: async () => {
+    const response = await api.get('/staff');
+    return response.data;
+  },
+  add: async (data: any) => {
+    const response = await api.post('/staff', data);
+    return response.data;
+  },
+  remove: async (id: number) => {
+    await api.delete(`/staff/${id}`);
+  }
+};

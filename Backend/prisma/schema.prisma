@@ -9,16 +9,19 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String
-  schoolId  Int?     @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  role      UserRole @default(SCHOOL_ADMIN)
-  school    School?  @relation(fields: [schoolId], references: [id])
-  donations Donation[]
+  id              Int      @id @default(autoincrement())
+  email           String   @unique
+  password        String
+  name            String
+  phone           String?
+  schoolId        Int?
+  assignedClass   Int?
+  assignedSection String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  role            UserRole @default(SCHOOL_ADMIN)
+  school          School?  @relation(fields: [schoolId], references: [id])
+  donations       Donation[]
 }
 
 model School {
@@ -48,7 +51,7 @@ model School {
   certifications   Certification[]
   children         Child[]
   events           Event[]
-  user             User?
+  users            User[]
   donations        Donation[]
 }
 
@@ -221,7 +224,7 @@ enum UserRole {
   SCHOOL_ADMIN
   PRINCIPAL
   CLASS_TEACHER
-  NURSE_COUNSELLOR
+  STAFF
   DISTRICT_VIEWER
   WOMBTO18_OPS
   PARTNER

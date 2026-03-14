@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { schoolService, authService, dashboardService, partnerService } from '../services/api';
-import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, Calendar, ClipboardList, CalendarPlus, Users, Award, Heart, Globe } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { schoolService, authService, dashboardService } from '../services/api';
+import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, Calendar, ClipboardList, CalendarPlus, Users, Award, Heart, Globe, ShieldAlert } from 'lucide-react';
 
 // PRD §4.1: Tab visibility by role
 const formatRole = (role: string) =>
@@ -19,7 +20,7 @@ const canSeeTab = (role: string, tab: string): boolean => {
     case 'certifications':
       return ['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'].includes(role);
     case 'records':
-      return ['SCHOOL_ADMIN', 'PRINCIPAL', 'CLASS_TEACHER', 'NURSE_COUNSELLOR', 'WOMBTO18_OPS'].includes(role);
+      return ['SCHOOL_ADMIN', 'PRINCIPAL', 'CLASS_TEACHER', 'STAFF', 'WOMBTO18_OPS'].includes(role);
     case 'available-schools':
       return ['PARTNER', 'WOMBTO18_OPS'].includes(role);
     case 'my-donations':
@@ -37,10 +38,12 @@ const DetailRow = ({ label, value }: { label: string; value?: string | number | 
 );
 import { motion } from 'framer-motion';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { CircularProgress } from '../components/CircularProgress';
 import ChildRecords from './ChildRecords';
 import Events from './Events';
 import Ambassadors from './Ambassadors';
 import Certifications from './Certifications';
+import StaffManagement from './StaffManagement';
 import PartnerDashboard from './PartnerDashboard';
 
 type TabId = 'dashboard' | 'school-details' | 'events' | 'ambassadors' | 'certifications' | 'records' | 'available-schools' | 'my-donations';
@@ -49,6 +52,13 @@ const Dashboard: React.FC = () => {
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
   const role = user?.role ?? '';
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (role === 'PARTNER') {
+      navigate('/partner/dashboard');
+    }
+  }, [role, navigate]);
 
 
 
@@ -56,7 +66,8 @@ const Dashboard: React.FC = () => {
   const [overview, setOverview] = useState<any>(null);
   const [districtOverview, setDistrictOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [partnerStats, setPartnerStats] = useState({ totalAmount: 0, count: 0 });
+  
+  // const [partnerStats, setPartnerStats] = useState({ totalAmount: 0, count: 0 });
 
   const visibleTabs = useMemo(() => {
     const tabs: TabId[] = ['dashboard', 'school-details', 'events', 'ambassadors', 'certifications', 'records', 'available-schools', 'my-donations'];
@@ -107,14 +118,14 @@ const Dashboard: React.FC = () => {
     }
   }, [school, activeTab]);
 
-  useEffect(() => {
-    if (role === 'PARTNER' && activeTab === 'dashboard') {
-      partnerService.getDonations().then(data => {
-        const total = data.reduce((sum: number, d: any) => sum + d.amount, 0);
-        setPartnerStats({ totalAmount: total, count: data.length });
-      }).catch(() => {});
-    }
-  }, [role, activeTab]);
+  // useEffect(() => {
+  //   if (role === 'PARTNER' && activeTab === 'dashboard') {
+  //     partnerService.getDonations().then(data => {
+  //       const total = data.reduce((sum: number, d: any) => sum + d.amount, 0);
+  //       setPartnerStats({ totalAmount: total, count: data.length });
+  //     }).catch(() => {});
+  //   }
+  // }, [role, activeTab]);
 
   const handleLogout = () => {
     authService.logout();
@@ -139,158 +150,39 @@ const Dashboard: React.FC = () => {
         </div>
 
         <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {canSeeTab(role, 'dashboard') && (
-          <div 
-            onClick={() => setActiveTab('dashboard')}
-            style={{ 
-              background: activeTab === 'dashboard' ? 'var(--primary-light)' : 'transparent', 
-              color: activeTab === 'dashboard' ? 'var(--primary)' : 'var(--text-muted)', 
-              padding: '0.75rem 1rem', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              fontWeight: '500', 
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <LayoutDashboard size={20} /> Dashboard
-          </div>
-          )}
-          {canSeeTab(role, 'school-details') && (
-          <div 
-            onClick={() => setActiveTab('school-details')}
-            style={{ 
-              background: activeTab === 'school-details' ? 'var(--primary-light)' : 'transparent', 
-              color: activeTab === 'school-details' ? 'var(--primary)' : 'var(--text-muted)', 
-              padding: '0.75rem 1rem', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              fontWeight: '500', 
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <School size={20} /> School Details
-          </div>
-          )}
-          {canSeeTab(role, 'events') && (
-          <div 
-            onClick={() => setActiveTab('events')}
-            style={{ 
-              background: activeTab === 'events' ? 'var(--primary-light)' : 'transparent', 
-              color: activeTab === 'events' ? 'var(--primary)' : 'var(--text-muted)', 
-              padding: '0.75rem 1rem', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              fontWeight: '500', 
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <CalendarPlus size={20} /> Events
-          </div>
-          )}
-          {canSeeTab(role, 'ambassadors') && (
-          <div 
-            onClick={() => setActiveTab('ambassadors')}
-            style={{ 
-              background: activeTab === 'ambassadors' ? 'var(--primary-light)' : 'transparent', 
-              color: activeTab === 'ambassadors' ? 'var(--primary)' : 'var(--text-muted)', 
-              padding: '0.75rem 1rem', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              fontWeight: '500', 
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Users size={20} /> Ambassadors
-          </div>
-          )}
-          {canSeeTab(role, 'certifications') && (
-          <div 
-            onClick={() => setActiveTab('certifications')}
-            style={{ 
-              background: activeTab === 'certifications' ? 'var(--primary-light)' : 'transparent', 
-              color: activeTab === 'certifications' ? 'var(--primary)' : 'var(--text-muted)', 
-              padding: '0.75rem 1rem', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              fontWeight: '500', 
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Award size={20} /> Certifications
-          </div>
-          )}
-          {canSeeTab(role, 'records') && (
-          <div 
-            onClick={() => setActiveTab('records')}
-            style={{ 
-              background: activeTab === 'records' ? 'var(--primary-light)' : 'transparent', 
-              color: activeTab === 'records' ? 'var(--primary)' : 'var(--text-muted)', 
-              padding: '0.75rem 1rem', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              fontWeight: '500', 
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <ClipboardList size={20} /> Records
-          </div>
-          )}
-          {canSeeTab(role, 'available-schools') && (
-          <div 
-            onClick={() => setActiveTab('available-schools')}
-            style={{ 
-              background: activeTab === 'available-schools' ? 'var(--primary-light)' : 'transparent', 
-              color: activeTab === 'available-schools' ? 'var(--primary)' : 'var(--text-muted)', 
-              padding: '0.75rem 1rem', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              fontWeight: '500', 
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Globe size={20} /> Browse Schools
-          </div>
-          )}
-          {canSeeTab(role, 'my-donations') && (
-          <div 
-            onClick={() => setActiveTab('my-donations')}
-            style={{ 
-              background: activeTab === 'my-donations' ? 'var(--primary-light)' : 'transparent', 
-              color: activeTab === 'my-donations' ? 'var(--primary)' : 'var(--text-muted)', 
-              padding: '0.75rem 1rem', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              fontWeight: '500', 
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Heart size={20} /> My Donations
-          </div>
-          )}
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'school-details', label: 'School Details', icon: School },
+            { id: 'events', label: 'Events', icon: CalendarPlus },
+            { id: 'ambassadors', label: 'Ambassadors', icon: Users },
+            { id: 'certifications', label: 'Certifications', icon: Award },
+            { id: 'records', label: 'Records', icon: ClipboardList },
+            { id: 'available-schools', label: 'Browse Schools', icon: Globe },
+            { id: 'my-donations', label: 'My Donations', icon: Heart }
+          ].filter(tab => canSeeTab(role, tab.id)).map(tab => (
+            <motion.div 
+              key={tab.id}
+              whileHover={{ x: 5 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setActiveTab(tab.id as TabId)}
+              style={{ 
+                background: activeTab === tab.id ? 'var(--primary-light)' : 'transparent', 
+                color: activeTab === tab.id ? 'var(--primary)' : 'var(--text-muted)', 
+                padding: '0.85rem 1.25rem', 
+                borderRadius: '14px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                fontWeight: activeTab === tab.id ? '600' : '500', 
+                cursor: 'pointer',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                border: activeTab === tab.id ? '1px solid rgba(37, 99, 235, 0.1)' : '1px solid transparent'
+              }}
+            >
+              <tab.icon size={20} strokeWidth={activeTab === tab.id ? 2.5 : 2} /> 
+              <span style={{ fontSize: '0.95rem' }}>{tab.label}</span>
+            </motion.div>
+          ))}
         </nav>
 
         <button onClick={handleLogout} className="btn" style={{ background: '#fee2e2', color: '#dc2626', width: '100%' }}>
@@ -328,6 +220,7 @@ const Dashboard: React.FC = () => {
               You don&apos;t have access to this section.
             </div>
           ) : activeTab === 'school-details' ? (
+            <>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -365,6 +258,13 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
             </motion.div>
+            
+            {['SCHOOL_ADMIN', 'PRINCIPAL'].includes(role) && (
+              <div style={{ marginTop: '3rem' }}>
+                <StaffManagement />
+              </div>
+            )}
+          </>
           ) : activeTab === 'events' ? (
             <Events />
           ) : activeTab === 'ambassadors' ? (
@@ -429,109 +329,168 @@ const Dashboard: React.FC = () => {
                 </motion.div>
               )}
               {role !== 'DISTRICT_VIEWER' && overview && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}
-                >
-                  <div className="glass-card" style={{ padding: '1.25rem', background: 'white' }}>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Checkup Coverage</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: overview.coveragePercent >= 70 ? '#166534' : overview.coveragePercent >= 50 ? '#92400e' : '#991b1b' }}>{overview.coveragePercent}%</p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{overview.studentsWithCheckup} / {overview.totalStudents} students</p>
-                  </div>
-                  <div className="glass-card" style={{ padding: '1.25rem', background: 'white' }}>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Drill Completion</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: overview.drillPercent >= 50 ? '#166534' : '#991b1b' }}>{overview.drillPercent}%</p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{overview.drillCompleted} / {overview.drillRequired} drills</p>
-                  </div>
-                  <div className="glass-card" style={{ padding: '1.25rem', background: 'white' }}>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Certifications</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{overview.certificationCount}</p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{overview.certificationActive} active, {overview.certificationPending} pending</p>
-                  </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="glass-card"
+                    style={{ padding: '1.5rem', background: 'white', display: 'flex', alignItems: 'center', gap: '1.5rem' }}
+                  >
+                    <CircularProgress 
+                      percentage={overview.coveragePercent} 
+                      size={90} 
+                      strokeWidth={8} 
+                      color={overview.coveragePercent >= 70 ? '#16a34a' : overview.coveragePercent >= 50 ? '#ca8a04' : '#dc2626'} 
+                      subLabel="Cover"
+                    />
+                    <div>
+                      <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>Checkup Coverage</h3>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        {overview.studentsWithCheckup} / {overview.totalStudents} <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Students</span>
+                      </p>
+                      <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: overview.coveragePercent >= 70 ? '#16a34a' : '#dc2626' }}></div>
+                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{overview.coveragePercent >= 70 ? 'On Track' : 'Action Needed'}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="glass-card"
+                    style={{ padding: '1.5rem', background: 'white', display: 'flex', alignItems: 'center', gap: '1.5rem' }}
+                  >
+                    <CircularProgress 
+                      percentage={overview.drillPercent} 
+                      size={90} 
+                      strokeWidth={8} 
+                      color={overview.drillPercent >= 50 ? '#16a34a' : '#dc2626'} 
+                      subLabel="Drill"
+                    />
+                    <div>
+                      <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>Drill Completion</h3>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        {overview.drillCompleted} / {overview.drillRequired} <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Drills</span>
+                      </p>
+                      <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: overview.drillPercent >= 50 ? '#16a34a' : '#dc2626' }}></div>
+                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{overview.drillPercent >= 50 ? 'Requirement Met' : 'Incomplete'}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="glass-card"
+                    style={{ padding: '1.5rem', background: 'white', display: 'flex', alignItems: 'center', gap: '1.5rem' }}
+                  >
+                    <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <Award size={40} color="var(--primary)" />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>Certifications</h3>
+                      <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>{overview.certificationCount}</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{overview.certificationActive} active, {overview.certificationPending} pending</p>
+                    </div>
+                  </motion.div>
+
                   {overview.isHighRisk && (
-                    <div className="glass-card" style={{ padding: '1.25rem', background: '#fef2f2', border: '1px solid #fecaca' }}>
-                      <p style={{ fontSize: '0.8rem', color: '#991b1b', marginBottom: '4px', fontWeight: 600 }}>High Risk</p>
-                      <p style={{ fontSize: '0.85rem', color: '#991b1b' }}>{overview.highRiskFlags.slice(0, 2).join('; ')}</p>
-                    </div>
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="glass-card"
+                      style={{ padding: '1.5rem', background: '#fff1f2', border: '1px solid #fecaca', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <ShieldAlert size={20} color="#dc2626" />
+                        <h3 style={{ fontSize: '1rem', color: '#991b1b', margin: 0 }}>High Risk Alert</h3>
+                      </div>
+                      <p style={{ fontSize: '0.85rem', color: '#991b1b', lineHeight: 1.4 }}>{overview.highRiskFlags.slice(0, 2).join('; ')}</p>
+                    </motion.div>
                   )}
-                </motion.div>
+
+                </div>
               )}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-              {/* School Details */}
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="glass-card" 
-                style={{ padding: '2.5rem', background: 'white' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-                  <h2 style={{ fontSize: '1.5rem' }}>{school.schoolName}</h2>
-                  <span style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                    {school.registrationNo}
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem' }}>
-                  <div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Affiliation</p>
-                    <p style={{ fontWeight: '500' }}>{school.boardAffiliation} ({school.schoolType})</p>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+                {/* School Details */}
+                <motion.div 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="glass-card" 
+                  style={{ padding: '2.5rem', background: 'white' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+                    <h2 style={{ fontSize: '1.5rem' }}>{school.schoolName}</h2>
+                    <span style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                      {school.registrationNo}
+                    </span>
                   </div>
-                  <div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Principal</p>
-                    <p style={{ fontWeight: '500' }}>{school.principalName}</p>
-                  </div>
-                  <div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Contact Email</p>
-                    <p style={{ fontWeight: '500' }}>{school.schoolEmail}</p>
-                  </div>
-                  <div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Total Strength</p>
-                    <p style={{ fontWeight: '500' }}>{school.studentStrength.toLocaleString()} Students</p>
-                  </div>
-                </div>
-                <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px' }}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>INSTITUTION ADDRESS</p>
-                  <p style={{ lineHeight: '1.6' }}>{school.address}, {school.city}, {school.state} - {school.pincode}</p>
-                </div>
-              </motion.div>
-              {/* Quick Actions / Status */}
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="glass-card" 
-                style={{ padding: '2rem', height: 'fit-content' }}
-              >
-                <h3 style={{ marginBottom: '1.5rem' }}>Quick Summary</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Calendar size={18} color="var(--text-muted)" />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem' }}>
                     <div>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Registered On</p>
-                      <p style={{ fontWeight: '500' }}>{new Date(school.createdAt).toLocaleDateString()}</p>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Affiliation</p>
+                      <p style={{ fontWeight: '500' }}>{school.boardAffiliation} ({school.schoolType})</p>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Mail size={18} color="var(--text-muted)" />
                     <div>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Official Email</p>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Principal</p>
+                      <p style={{ fontWeight: '500' }}>{school.principalName}</p>
+                    </div>
+                    <div>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Contact Email</p>
                       <p style={{ fontWeight: '500' }}>{school.schoolEmail}</p>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Phone size={18} color="var(--text-muted)" />
                     <div>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Contact No</p>
-                      <p style={{ fontWeight: '500' }}>{school.principalContact}</p>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Total Strength</p>
+                      <p style={{ fontWeight: '500' }}>{school.studentStrength.toLocaleString()} Students</p>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            </div>
+                  <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>INSTITUTION ADDRESS</p>
+                    <p style={{ lineHeight: '1.6' }}>{school.address}, {school.city}, {school.state} - {school.pincode}</p>
+                  </div>
+                </motion.div>
+                {/* Quick Actions / Status */}
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="glass-card" 
+                  style={{ padding: '2rem', height: 'fit-content' }}
+                >
+                  <h3 style={{ marginBottom: '1.5rem' }}>Quick Summary</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Calendar size={18} color="var(--text-muted)" />
+                      <div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Registered On</p>
+                        <p style={{ fontWeight: '500' }}>{new Date(school.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Mail size={18} color="var(--text-muted)" />
+                      <div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Official Email</p>
+                        <p style={{ fontWeight: '500' }}>{school.schoolEmail}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Phone size={18} color="var(--text-muted)" />
+                      <div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Contact No</p>
+                        <p style={{ fontWeight: '500' }}>{school.principalContact}</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
             </div>
           ) : (
             <ChildRecords />
           )
-
         ) : (
           <motion.div 
             initial={{ opacity: 0 }}
