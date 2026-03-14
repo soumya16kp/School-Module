@@ -227,7 +227,7 @@ const Events: React.FC = () => {
                     <User size={14} /> {ev.ambassador.name}
                   </div>
                 )}
-                {isDrill(ev.type) && ev.attendanceJson && (ev.attendanceJson as any).totalPresent != null && (
+                {ev.attendanceJson && (ev.attendanceJson as any).totalPresent != null && (
                   <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Users size={14} /> {(ev.attendanceJson as any).totalPresent} / {(ev.attendanceJson as any).totalExpected} attended
                   </div>
@@ -239,32 +239,28 @@ const Events: React.FC = () => {
               </div>
               <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{ev.academicYear}</div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                {isDrill(ev.type) && (
-                  <>
-                    {ev.completedAt && (
-                      <button
-                        onClick={() => openAttendanceModal(ev)}
-                        style={{ padding: '6px 10px', background: '#e0e7ff', color: '#4338ca', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                      >
-                        {ev.attendanceJson ? 'Edit attendance' : 'Log attendance'}
-                      </button>
-                    )}
-                    {ev.completedAt ? (
-                      <button
-                        onClick={() => handleMarkIncomplete(ev.id)}
-                        style={{ padding: '6px 10px', background: '#f1f5f9', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}
-                      >
-                        Mark incomplete
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleMarkComplete(ev.id)}
-                        style={{ padding: '6px 10px', background: '#dcfce7', color: '#166534', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                      >
-                        Mark completed
-                      </button>
-                    )}
-                  </>
+                {ev.completedAt && (
+                  <button
+                    onClick={() => openAttendanceModal(ev)}
+                    style={{ padding: '6px 10px', background: '#e0e7ff', color: '#4338ca', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                  >
+                    {ev.attendanceJson ? 'Edit attendance' : 'Log attendance'}
+                  </button>
+                )}
+                {ev.completedAt ? (
+                  <button
+                    onClick={() => handleMarkIncomplete(ev.id)}
+                    style={{ padding: '6px 10px', background: '#f1f5f9', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}
+                  >
+                    Mark incomplete
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleMarkComplete(ev.id)}
+                    style={{ padding: '6px 10px', background: '#dcfce7', color: '#166534', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                  >
+                    Mark completed
+                  </button>
                 )}
                 <button
                   onClick={() => handleDelete(ev.id)}
