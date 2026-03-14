@@ -57,7 +57,7 @@ router.get("/:childId", authenticateJWT, async (req: AuthRequest, res) => {
       return;
     }
 
-    const childId = parseInt(req.params.childId);
+    const childId = parseInt(req.params.childId as string);
     if (Number.isNaN(childId)) {
       res.status(400).json({ error: "Invalid child id" });
       return;
@@ -88,7 +88,7 @@ router.post(
         return;
       }
 
-      const childId = parseInt(req.params.childId);
+      const childId = parseInt(req.params.childId as string);
       if (Number.isNaN(childId)) {
         res.status(400).json({ error: "Invalid child id" });
         return;
