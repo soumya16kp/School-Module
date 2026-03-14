@@ -54,6 +54,7 @@ model School {
 
 model Child {
   id             Int              @id @default(autoincrement())
+  cardToken      String?          @unique // persistent token for QR ID card (OQ-01: token-based, no login)
   registrationNo String           @unique
   name           String
   class          Int
@@ -224,6 +225,16 @@ enum UserRole {
   DISTRICT_VIEWER
   WOMBTO18_OPS
   PARTNER
+}
+
+model OtpCode {
+  id        Int      @id @default(autoincrement())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
 }
 
 model Donation {

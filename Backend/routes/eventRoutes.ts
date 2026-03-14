@@ -96,16 +96,19 @@ router.patch("/:id", async (req: AuthRequest, res) => {
       return res.status(400).json({ message: "Invalid event id" });
     }
     const { type, title, description, academicYear, scheduledAt, completedAt, attendanceJson, ambassadorId } = req.body;
-    await EventService.update(id, school.id, {
+    const updatePayload: Record<string, unknown> = {
       type,
       title,
       description,
       academicYear,
       scheduledAt: scheduledAt != null ? new Date(scheduledAt) : undefined,
-      completedAt: completedAt != null ? new Date(completedAt) : undefined,
       attendanceJson,
       ambassadorId,
-    });
+    };
+    if (completedAt !== undefined) {
+      updatePayload.completedAt = completedAt == null ? null : new Date(completedAt);
+    }
+    await EventService.update(id, school.id, updatePayload as any);
     const event = await EventService.getById(id, school.id);
     res.json(event);
   } catch (err: any) {

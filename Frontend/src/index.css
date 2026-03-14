@@ -139,3 +139,50 @@ textarea:focus {
     transform: translateY(0);
   }
 }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn:disabled,
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Record cards - stack on mobile */
+@media (max-width: 700px) {
+  .record-card {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+}
+
+/* Search bar mobile */
+@media (max-width: 600px) {
+  form[style*="display: flex"] {
+    flex-direction: column !important;
+  }
+  form[style*="display: flex"] button {
+    width: 100%;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+  #root {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  #root {
+    padding: 0.75rem;
+  }
+}

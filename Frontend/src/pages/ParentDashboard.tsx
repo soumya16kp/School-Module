@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, Calendar, FileText,
   LogOut, ShieldAlert, CheckCircle2, Award, HeartPulse,
-  ChevronRight, ArrowLeft, Download, Info, Shield, Bell, X, Check, Link as LinkIcon
+  ChevronRight, ArrowLeft, Download, Info, Shield, Bell, X, Check, Link as LinkIcon, CreditCard
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
 import QRCode from 'react-qr-code';
@@ -21,7 +21,24 @@ const ParentDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('health');
   const [selectedProgramYear, setSelectedProgramYear] = useState<string>('');
   const [accessRequests, setAccessRequests] = useState<any[]>([]);
+  const [idCardLoading, setIdCardLoading] = useState(false);
   const navigate = useNavigate();
+
+  const uploadsBase = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+  const openIdCard = async () => {
+    if (!id) return;
+    setIdCardLoading(true);
+    try {
+      const token = await parentService.getCardToken(parseInt(id));
+      window.open(`${window.location.origin}/card/${token}`, '_blank', 'noopener');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to load ID card');
+    } finally {
+      setIdCardLoading(false);
+    }
+  };
 
   const fetchAccessRequests = async () => {
     const token = localStorage.getItem('parent_token');
@@ -117,6 +134,7 @@ const ParentDashboard: React.FC = () => {
 
   const healthRecords: any[] = data?.healthRecords || [];
   const currentRecord = healthRecords[0] || {};
+  const notifications: any[] = data?.notifications || [];
 
   const allYears: string[] = Array.from(
     new Set(healthRecords.map((r: any) => r.academicYear as string))
@@ -153,6 +171,58 @@ const ParentDashboard: React.FC = () => {
       </header>
 
       <main style={{ maxWidth: '1200px', margin: '2rem auto', padding: '0 1.5rem' }}>
+        {/* Notifications */}
+        {notifications.length > 0 && (
+          <div className="glass-card" style={{ marginBottom: '2rem', padding: '1.25rem', background: 'white', borderRadius: '16px', borderLeft: '4px solid #2563eb' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+              <Bell size={20} color="#2563eb" />
+              <h4 style={{ fontWeight: '700', color: '#1e293b', margin: 0 }}>Notifications</h4>
+              <span style={{ fontSize: '0.8rem', background: '#eff6ff', color: '#2563eb', padding: '2px 10px', borderRadius: '20px', fontWeight: '600' }}>
+                {notifications.length}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {notifications.map((n: any, idx: number) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    background: n.priority === 'high' ? '#fef2f2' : '#f8fafc',
+                    border: `1px solid ${n.priority === 'high' ? '#fecaca' : '#e2e8f0'}`,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: n.type === 'referral' ? '#fee2e2' : n.type === 'finding' ? '#fef3c7' : '#dbeafe',
+                    color: n.type === 'referral' ? '#dc2626' : n.type === 'finding' ? '#d97706' : '#2563eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {n.type === 'upcoming' ? <Calendar size={18} /> : <ShieldAlert size={18} />}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: '700', color: '#1e293b', margin: 0, fontSize: '0.95rem' }}>{n.title}</p>
+                    <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '4px 0 0 0' }}>{n.message}</p>
+                    {n.date && (
+                      <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '4px 0 0 0' }}>
+                        {new Date(n.date).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Navigation Tabs */}
         <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', borderBottom: '1px solid #e2e8f0' }}>
           {[
@@ -179,6 +249,9 @@ const ParentDashboard: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'health' && (
             <motion.div key="health" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <div style={{ marginBottom: '1.5rem', padding: '1rem 1.25rem', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe', fontSize: '0.9rem', color: '#1e40af' }}>
+                <strong>Understanding your child's health data:</strong> BMI and screening results help track growth and wellness. If you see a referral recommendation or abnormal finding, please consult your child's doctor for follow-up. This dashboard is for informational purposes and does not replace medical advice.
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
                 <div className="glass-card" style={{ padding: '1.5rem', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -337,9 +410,14 @@ const ParentDashboard: React.FC = () => {
                         </div>
                         <div style={{ display: 'flex', gap: '10px' }}>
                            {rec.reportFile ? (
-                              <button style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none', background: '#2563eb', color: 'white', fontWeight: '600', cursor: 'pointer' }}>
+                              <a 
+                                href={`${uploadsBase}/uploads/${rec.reportFile}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none', background: '#2563eb', color: 'white', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}
+                              >
                                 <Download size={18} /> Download PDF
-                              </button>
+                              </a>
                            ) : (
                               <button disabled style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none', background: '#e2e8f0', color: '#94a3b8', fontWeight: '600', cursor: 'not-allowed' }}>
                                 <Download size={18} /> No File
@@ -367,16 +445,25 @@ const ParentDashboard: React.FC = () => {
                      <p style={{ opacity: 0.9, fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>
                        Anyone who scans this QR can send a <strong>request</strong> to view vital health data. You must approve the request before it's shown.
                      </p>
-                     <button 
-                        onClick={() => {
-                          const url = `${window.location.origin}/emergency-access/${id}`;
-                          navigator.clipboard.writeText(url);
-                          alert('Emergency link copied to clipboard!');
-                        }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', fontSize: '0.85rem' }}
-                      >
-                       <LinkIcon size={14} /> Copy Emergency Link
-                     </button>
+                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                       <button 
+                          onClick={() => {
+                            const url = `${window.location.origin}/emergency-access/${id}`;
+                            navigator.clipboard.writeText(url);
+                            alert('Emergency link copied to clipboard!');
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', fontSize: '0.85rem' }}
+                        >
+                         <LinkIcon size={14} /> Copy Emergency Link
+                       </button>
+                       <button 
+                          onClick={openIdCard}
+                          disabled={idCardLoading}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.2)', color: 'white', cursor: idCardLoading ? 'wait' : 'pointer', fontSize: '0.85rem' }}
+                        >
+                         <CreditCard size={14} /> {idCardLoading ? 'Opening...' : 'Download ID Card'}
+                       </button>
+                     </div>
                    </div>
                    <div style={{ background: 'white', padding: '16px', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                      <QRCode

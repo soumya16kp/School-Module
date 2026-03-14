@@ -21,7 +21,10 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
+    "pdfkit": "^0.17.2",
     "prisma": "^6.19.2",
+    "qrcode": "^1.5.4",
+    "twilio": "^5.13.0",
     "razorpay": "^2.9.6"
   },
   "devDependencies": {
@@ -31,7 +34,9 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.4.0",
+    "@types/pdfkit": "^0.17.5",
     "@types/pg": "^8.18.0",
+    "@types/qrcode": "^1.5.6",
     "cross-env": "^10.1.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"

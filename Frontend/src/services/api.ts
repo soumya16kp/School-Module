@@ -135,6 +135,22 @@ export const dashboardService = {
   getDistrictOverview: async (academicYear?: string) => {
     const response = await api.get('/dashboard/district-overview', { params: academicYear ? { academicYear } : {} });
     return response.data;
+  },
+  exportReport: async (params: { format: 'csv' | 'pdf'; academicYear?: string; class?: number; section?: string; domain?: string }) => {
+    const token = localStorage.getItem('school_token');
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
+    const qs = new URLSearchParams({ format: params.format, ...(params.academicYear && { academicYear: params.academicYear }), ...(params.class != null && { class: String(params.class) }), ...(params.section && { section: params.section }), ...(params.domain && { domain: params.domain }) });
+    const url = `${base}/dashboard/export?${qs}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const ext = params.format === 'pdf' ? 'pdf' : 'csv';
+    const filename = `health-report-${params.academicYear || 'all'}.${ext}`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 };
 
@@ -161,6 +177,18 @@ export const certificationService = {
 };
 
 export const parentService = {
+  sendOtp: async (phone: string) => {
+    const response = await api.post('/parent/send-otp', { phone });
+    return response.data;
+  },
+  verifyOtp: async (phone: string, code: string) => {
+    const response = await api.post('/parent/verify-otp', { phone, code });
+    if (response.data.token) {
+      localStorage.setItem('parent_token', response.data.token);
+      localStorage.setItem('parent_info', JSON.stringify(response.data.parent));
+    }
+    return response.data;
+  },
   login: async (phone: string) => {
     const response = await api.post('/parent/login', { phone });
     if (response.data.token) {
@@ -177,9 +205,40 @@ export const parentService = {
     const response = await api.get(`/parent/children/${id}`);
     return response.data;
   },
+  getCardToken: async (childId: number) => {
+    const response = await api.post(`/parent/card-token/${childId}`);
+    return response.data.token as string;
+  },
   logout: () => {
     localStorage.removeItem('parent_token');
     localStorage.removeItem('parent_info');
+  }
+};
+
+export const cardService = {
+  ensureToken: async (childId: number) => {
+    const response = await api.post(`/card/ensure/${childId}`);
+    return response.data.token as string;
+  },
+  getByToken: async (token: string) => {
+    const response = await api.get(`/card/${token}`);
+    return response.data;
+  },
+  exportBulk: async (params?: { class?: number; section?: string }) => {
+    const token = localStorage.getItem('school_token');
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
+    const origin = window.location.origin;
+    const qs = new URLSearchParams({ baseUrl: origin });
+    if (params?.class != null) qs.set('class', String(params.class));
+    if (params?.section) qs.set('section', params.section);
+    const res = await fetch(`${base}/card/bulk?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'id-cards-bulk.pdf';
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 };
 
