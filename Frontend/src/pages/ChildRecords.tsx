@@ -20,7 +20,7 @@ const ChildRecords: React.FC = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [bulkCardLoading, setBulkCardLoading] = useState(false);
   const [bulkCardFilters, setBulkCardFilters] = useState({ class: '' as string, section: '' });
-  const [exportFilters, setExportFilters] = useState({ format: 'csv' as 'csv' | 'pdf', academicYear: '', class: '' as string, section: '', domain: 'all' });
+  const [exportFilters, setExportFilters] = useState({ format: 'csv' as 'csv' | 'pdf', academicYear: '2024-2025', class: '' as string, section: '', domain: 'all' });
   const [formData, setFormData] = useState({
     name: '',
     class: '',

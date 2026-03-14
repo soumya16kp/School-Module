@@ -96,8 +96,8 @@ export class ExportService {
       for (const rec of records) {
         if (filters.domain && filters.domain !== "all") {
           if (filters.domain === "bmi" && rec.height == null && rec.weight == null) continue;
-          if (filters.domain === "dental" && !rec.dentalOverallHealth) continue;
-          if (filters.domain === "vision" && !rec.visionOverall) continue;
+          if (filters.domain === "dental" && !rec.dentalOverallHealth && !rec.dentalCariesIndex) continue;
+          if (filters.domain === "vision" && !rec.visionOverall && !rec.eyeCheckup && !rec.eyeVisionLeft && !rec.eyeVisionRight) continue;
           if (filters.domain === "immunization" && rec.immunization == null) continue;
         }
         rows.push({
@@ -233,18 +233,19 @@ export class ExportService {
       doc.font("Helvetica");
 
       const pageHeight = doc.page.height - 80;
+      const rowHeight = 14;
       for (const r of rows) {
         if (doc.y > pageHeight) {
           doc.addPage();
           doc.fontSize(8);
-          y = 40;
+          y = 80;
           doc.text("(continued)", 40, y);
-          doc.moveDown();
+          doc.moveDown(1);
         }
-        y = doc.y;
+        const rowStartY = doc.y;
         const cells = [
-          r.name?.slice(0, 12) || "",
-          r.registrationNo?.slice(0, 10) || "",
+          r.name?.slice(0, 14) || "",
+          r.registrationNo?.slice(0, 12) || "",
           String(r.class),
           r.section,
           r.gender?.slice(0, 4) || "",
@@ -253,23 +254,28 @@ export class ExportService {
           r.height != null ? String(r.height) : "",
           r.weight != null ? String(r.weight) : "",
           r.bmi != null ? String(r.bmi) : "",
-          (r.bmiCategory || "").slice(0, 6),
-          (r.dentalOverallHealth || "").slice(0, 8),
+          (r.bmiCategory || "").slice(0, 8),
+          (r.dentalOverallHealth || "").slice(0, 10),
           r.dentalReferralNeeded ? "Y" : "",
-          (r.visionOverall || "").slice(0, 6),
+          (r.visionOverall || "").slice(0, 8),
           r.visionReferralNeeded ? "Y" : "",
           r.immunization ? "Y" : "",
           r.mentalWellness ? "Y" : "",
           r.nutrition ? "Y" : "",
           r.menstrualHygiene ? "Y" : "",
         ];
+        let maxY = rowStartY;
         cells.forEach((c, i) => {
-          doc.text(c, 40 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), y, {
+          const x = 40 + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
+          doc.text(c, x, rowStartY, {
             width: colWidths[i],
             align: "left",
+            lineBreak: true,
           });
+          if (doc.y > maxY) maxY = doc.y;
         });
-        doc.moveDown(0.3);
+        doc.y = Math.max(maxY, rowStartY + rowHeight);
+        doc.moveDown(0.5);
       }
 
       doc.end();
