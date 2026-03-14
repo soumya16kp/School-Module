@@ -12,6 +12,8 @@ const ChildRecords: React.FC = () => {
   const [children, setChildren] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterClass, setFilterClass] = useState('');
+  const [filterSection, setFilterSection] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showBulkCardModal, setShowBulkCardModal] = useState(false);
@@ -139,6 +141,12 @@ const ChildRecords: React.FC = () => {
   const uniqueClasses = Array.from(new Set(children.map((c: any) => c.class))).sort((a, b) => a - b);
   const uniqueSections = Array.from(new Set(children.map((c: any) => c.section))).sort();
 
+  const filteredChildren = children.filter((c: any) => {
+    const matchClass = !filterClass || String(c.class) === filterClass;
+    const matchSection = !filterSection || c.section === filterSection;
+    return matchClass && matchSection;
+  });
+
   const openIdCard = async (e: React.MouseEvent, childId: number) => {
     e.stopPropagation();
     try {
@@ -198,26 +206,59 @@ const ChildRecords: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Bar */}
+      {/* Search & Filter Bar */}
       <div className="glass-card" style={{ marginBottom: '2rem', background: 'white', padding: '1rem' }}>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
             <Search 
               size={20} 
               style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)' }} 
             />
             <input 
               type="text" 
-              placeholder="Search by student name, class section, or phone number..." 
+              placeholder="Search by student name, class, section, or phone..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: '3rem', paddingRight: '1rem', height: '50px', background: '#f8fafc', border: 'none', borderRadius: '12px', width: '100%', fontSize: '1rem' }}
             />
           </div>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select
+              value={filterClass}
+              onChange={(e) => setFilterClass(e.target.value)}
+              style={{ height: '50px', padding: '0 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: '#f8fafc', fontSize: '0.95rem', minWidth: '100px' }}
+            >
+              <option value="">All classes</option>
+              {uniqueClasses.map((cls) => (
+                <option key={cls} value={String(cls)}>Class {cls}</option>
+              ))}
+            </select>
+            <select
+              value={filterSection}
+              onChange={(e) => setFilterSection(e.target.value)}
+              style={{ height: '50px', padding: '0 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: '#f8fafc', fontSize: '0.95rem', minWidth: '100px' }}
+            >
+              <option value="">All sections</option>
+              {uniqueSections.map((sec) => (
+                <option key={sec} value={sec}>Section {sec}</option>
+              ))}
+            </select>
+          </div>
           <button type="submit" className="btn btn-primary" style={{ height: '50px', padding: '0 2rem', borderRadius: '12px' }}>
             Search
           </button>
         </form>
+        {(filterClass || filterSection) && (
+          <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Showing {filteredChildren.length} of {children.length} students
+            <button
+              onClick={() => { setFilterClass(''); setFilterSection(''); }}
+              style={{ marginLeft: '0.5rem', color: 'var(--primary)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Records Table */}
@@ -227,14 +268,14 @@ const ChildRecords: React.FC = () => {
           <div className="glass-card" style={{ padding: '4rem', background: 'white' }}>
             <LoadingSpinner label="Loading student records..." />
           </div>
-        ) : children.length === 0 ? (
+        ) : filteredChildren.length === 0 ? (
           <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: 'white', color: 'var(--text-muted)', border: '2px dashed var(--border)' }}>
              <User size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
-             <h3>No Students Found</h3>
-             <p>Register a new student to see them listed here.</p>
+             <h3>{children.length === 0 ? 'No Students Found' : 'No matches for filters'}</h3>
+             <p>{children.length === 0 ? 'Register a new student to see them listed here.' : 'Try different class or section filters.'}</p>
           </div>
         ) : (
-          children.map((child, index) => (
+          filteredChildren.map((child, index) => (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

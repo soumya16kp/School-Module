@@ -64,12 +64,12 @@ Before the meeting starts, complete these steps:
 > "The first thing a principal sees is a health snapshot of their entire school — not individual records, but the big picture.
 >
 > Here we can see:
-> - **68% checkup coverage** — meaning 68% of students have at least one health record this academic year
-> - **3 of 5 required drills** have been completed
-> - **2 active certifications** — UDISE and Fire Safety
-> - And here on the right, **high-risk flags**: 14% dental prevalence, 9% vision referrals, and 3 students flagged for BMI risk
+> - **Checkup Coverage** — 100%, meaning every student in the system has at least one health record this academic year
+> - **Drill Completion** — 1 of 5 required drill types done (fire, blackout, bunker, CPR, first aid). Schools need to complete all five for full compliance
+> - **Certifications** — 2 active, 1 pending (UDISE, Fire Safety, Health Program)
+> - **High Risk** — the system flags issues like low drill completion so they stand out immediately
 >
-> This is the kind of data that previously required a manual audit. Here it's live, always current."
+> Below that, the school card shows affiliation, principal, contact, total strength. This is the kind of data that previously required a manual audit — here it's live and always current."
 
 **[DO]** Pause on the dashboard for 5–7 seconds. Let the numbers sink in.
 
@@ -157,16 +157,16 @@ Before the meeting starts, complete these steps:
 ### 1G – Events and Drills
 
 **[SAY]**
-> "Schools are legally required to conduct annual drills — fire safety, first aid, CPR training. Tracking whether these actually happened, who was present, and getting a compliance certificate has always been a pain point. Let me show you how WombTo18 handles it."
+> "Schools are legally required to conduct annual drills — fire safety, first aid, CPR training. But they also run checkups, screenings, and health programs. Tracking whether each actually happened, who attended, and getting a compliance certificate has always been a pain point. Let me show you how WombTo18 handles it."
 
 **[DO]** Click **Events** in the sidebar.
 
 **[SAY]**
-> "Here is the full event calendar for the academic year. You can see both health events — like the Vision Screening Camp coming up on 15th February — and safety drills.
+> "Here is the full event calendar for the academic year. You can see health events — Vision Screening, Dental Screening — and safety drills like the Fire Safety Drill.
 >
-> The Fire Safety Drill from last November is marked as Completed with 94% attendance. That attendance log goes directly towards the school's drill completion percentage you saw on the dashboard."
+> Every event type supports attendance. The Fire Safety Drill shows 1128/1200 attended. The Vision Screening could show the same — you mark an event complete, then log how many students participated. That gives a collective count for each program: 'these many students did dental screening,' 'these many did vision,' and so on. Drill attendance also feeds into the school's drill completion percentage on the dashboard."
 
-**[DO]** Click on the Fire Safety Drill to show its details — attendance, notes, completion status.
+**[DO]** Click on the Fire Safety Drill to show its details — attendance, notes, completion status. Point out that Vision Screening and Dental Screening would have the same Log/Edit attendance option once completed.
 
 **[SAY]**
 > "Let me quickly show you what happens when we add a new event."

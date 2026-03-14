@@ -369,7 +369,7 @@ A list of all scheduled events for the current academic year, sorted by date. Ea
 - Scheduled date
 - Academic year
 - Completion status badge (Upcoming / Completed / Overdue)
-- Buttons: **View details**, **Log attendance** (for drills), **Mark completed / incomplete**
+- Buttons: **View details**, **Log attendance** (all event types), **Mark completed / incomplete**
 
 ---
 
@@ -404,12 +404,12 @@ Fill in the form and click **Create Event**.
 
 ---
 
-### Step 4.3 – Logging drill attendance
+### Step 4.3 – Logging attendance
 
-After a drill has taken place:
+After an event (checkup, screening, drill, or program) has taken place:
 
 **What they do:**  
-Find the drill in the Events list and click **Log attendance**.
+Find the event in the Events list, click **Mark completed** if not already done, then click **Log attendance**.
 
 **What they see:**  
 A small form:
@@ -422,19 +422,22 @@ Fill in the numbers and notes, click **Save Attendance**.
 
 **What happens:**  
 - Attendance data saved
-- The drill card now shows attendance percentage
+- The event card now shows "X / Y attended"
 - Toast: "Attendance logged."
+
+Attendance can be logged for any event type — checkups, screenings, drills, nutrition sessions, expert sessions, etc. — so the school can track how many students participated in each program.
 
 ---
 
-### Step 4.4 – Marking a drill complete
+### Step 4.4 – Marking an event complete
 
 **What they do:**  
 Click **Mark completed** on the event row.
 
 **What happens:**  
 - The status badge changes from "Upcoming" to "Completed"
-- The drill counts towards the school's drill completion % on the Dashboard
+- For drill types (fire, CPR, first aid, etc.), this counts towards the school's drill completion % on the Dashboard
+- Once completed, the **Log attendance** button appears so they can record participation
 
 To undo, they click **Mark incomplete** and the status reverts.
 
