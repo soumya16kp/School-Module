@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticateJWT, AuthRequest, canManageAmbassadors, canViewHealth } from "../utils/authMiddleware";
 import { AmbassadorService } from "../services/ambassadorService";
 import { SchoolService } from "../services/schoolService";
+import prisma from "../prismaClient";
 
 const router = Router();
 
@@ -10,15 +11,20 @@ router.use(authenticateJWT);
 // GET /api/ambassadors – list ambassadors for user's school + global
 router.get("/", async (req: AuthRequest, res) => {
   try {
+    console.log(`Ambassadors Route - User context: ID=${req.user?.id}, Role=${req.user?.role}`);
     if (!req.user || !canViewHealth(req.user.role)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     const school = await SchoolService.getSchoolByUserId(req.user.id);
+    console.log('Ambassadors Route - User ID:', req.user.id, 'School:', school?.id);
     if (!school) {
+      console.log('Ambassadors Route - School NOT found for user');
       return res.status(404).json({ message: "School not found" });
     }
     const type = req.query.type as string | undefined;
+    const allCount = await prisma.ambassadorDirectory.count();
     const ambassadors = await AmbassadorService.listForSchool(school.id, type);
+    console.log(`Ambassadors Route - DB Total: ${allCount}, Found for school: ${ambassadors.length}`);
     res.json(ambassadors);
   } catch (err: any) {
     res.status(500).json({ message: err.message || "Server error" });

@@ -48,6 +48,16 @@ export class SchoolService {
         user: {
           id: userId
         }
+      },
+      include: {
+        donations: {
+          include: {
+            user: {
+              select: { name: true }
+            }
+          }
+        },
+        events: true,
       }
     });
   }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { schoolService, authService, dashboardService } from '../services/api';
+import { schoolService, authService, dashboardService, partnerService } from '../services/api';
 import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, Calendar, ClipboardList, CalendarPlus, Users, Award, Heart, Globe } from 'lucide-react';
 
 // PRD §4.1: Tab visibility by role
@@ -40,21 +40,22 @@ import ChildRecords from './ChildRecords';
 import Events from './Events';
 import Ambassadors from './Ambassadors';
 import Certifications from './Certifications';
-import PartnerSchools from '../components/PartnerSchools';
-import DonationHistory from '../components/DonationHistory';
-import { partnerService } from '../services/api';
+import PartnerDashboard from './PartnerDashboard';
 
 type TabId = 'dashboard' | 'school-details' | 'events' | 'ambassadors' | 'certifications' | 'records' | 'available-schools' | 'my-donations';
 
 const Dashboard: React.FC = () => {
-  const [school, setSchool] = useState<any>(null);
-  const [overview, setOverview] = useState<any>(null);
-  const [partnerStats, setPartnerStats] = useState({ totalAmount: 0, count: 0 });
-  const [districtOverview, setDistrictOverview] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
   const role = user?.role ?? '';
+
+
+
+  const [school, setSchool] = useState<any>(null);
+  const [overview, setOverview] = useState<any>(null);
+  const [districtOverview, setDistrictOverview] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [partnerStats, setPartnerStats] = useState({ totalAmount: 0, count: 0 });
 
   const visibleTabs = useMemo(() => {
     const tabs: TabId[] = ['dashboard', 'school-details', 'events', 'ambassadors', 'certifications', 'records', 'available-schools', 'my-donations'];
@@ -118,6 +119,9 @@ const Dashboard: React.FC = () => {
     authService.logout();
     window.location.href = '/';
   };
+
+  // Partners get their own dedicated dashboard
+  if (role === 'PARTNER') return <PartnerDashboard />;
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '1.2rem', color: 'var(--primary)' }}>Loading Dashboard...</div>;
 
@@ -314,7 +318,9 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+
         {school ? (
+
           !canSeeTab(role, activeTab) ? (
             <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
               You don&apos;t have access to this section.
@@ -364,40 +370,6 @@ const Dashboard: React.FC = () => {
           ) : activeTab === 'certifications' ? (
             <Certifications />
           ) : activeTab === 'dashboard' ? (
-            role === 'PARTNER' ? (
-              <div style={{ textAlign: 'center', padding: '4rem', background: 'white', borderRadius: '24px' }}>
-                <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Partner Dashboard</h2>
-                <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
-                  Welcome to the EduCentral Partner portal. Your role is crucial in facilitating a safe and healthy environment for students. Browse through schools to see where your contributions can make the most impact.
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem' }}>
-                   <div className="glass-card" style={{ padding: '2.5rem', textAlign: 'left', background: 'white' }}>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Total Contributions</p>
-                      <h3 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#10b981' }}>₹{partnerStats.totalAmount.toLocaleString()}</h3>
-                      <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>Across {partnerStats.count} sponsorships</p>
-                   </div>
-                   <div className="glass-card" style={{ padding: '2.5rem', textAlign: 'left', background: 'white' }}>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Impact Level</p>
-                      <h3 style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary)' }}>
-                        {partnerStats.totalAmount > 50000 ? 'Platinum' : partnerStats.totalAmount > 10000 ? 'Gold' : 'Silver'}
-                      </h3>
-                      <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>Community Contributor</p>
-                   </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem', marginTop: '2rem' }}>
-                   <div className="glass-card" style={{ padding: '2rem', cursor: 'pointer', background: 'white' }} onClick={() => setActiveTab('available-schools')}>
-                      <Globe size={40} color="var(--primary)" style={{ marginBottom: '1rem' }} />
-                      <h4 style={{ marginBottom: '0.5rem' }}>Find Schools</h4>
-                      <p style={{ fontSize: '0.9rem' }}>Browse institutions and their requirements</p>
-                   </div>
-                   <div className="glass-card" style={{ padding: '2rem', cursor: 'pointer', background: 'white' }} onClick={() => setActiveTab('my-donations')}>
-                      <Heart size={40} color="#ec4899" style={{ marginBottom: '1rem' }} />
-                      <h4 style={{ marginBottom: '0.5rem' }}>My Impact</h4>
-                      <p style={{ fontSize: '0.9rem' }}>View your donation history and tracking</p>
-                   </div>
-                </div>
-              </div>
-            ) : (
             <div>
               {role === 'DISTRICT_VIEWER' && districtOverview && (
                 <motion.div
@@ -497,7 +469,6 @@ const Dashboard: React.FC = () => {
                     {school.registrationNo}
                   </span>
                 </div>
-
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem' }}>
                   <div>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Affiliation</p>
@@ -516,13 +487,11 @@ const Dashboard: React.FC = () => {
                     <p style={{ fontWeight: '500' }}>{school.studentStrength.toLocaleString()} Students</p>
                   </div>
                 </div>
-
                 <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px' }}>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>INSTITUTION ADDRESS</p>
                   <p style={{ lineHeight: '1.6' }}>{school.address}, {school.city}, {school.state} - {school.pincode}</p>
                 </div>
               </motion.div>
-
               {/* Quick Actions / Status */}
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}
@@ -557,14 +526,10 @@ const Dashboard: React.FC = () => {
               </motion.div>
             </div>
             </div>
-            )
-          ) : activeTab === 'available-schools' ? (
-             <PartnerSchools />
-          ) : activeTab === 'my-donations' ? (
-             <DonationHistory />
           ) : (
             <ChildRecords />
           )
+
         ) : (
           <motion.div 
             initial={{ opacity: 0 }}

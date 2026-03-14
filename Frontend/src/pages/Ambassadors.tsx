@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ambassadorService } from '../services/api';
-import { Users, Plus, XCircle, Phone, Mail, MapPin } from 'lucide-react';
+import { Users, Plus, XCircle, Phone, Mail, Heart, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AMBASSADOR_TYPES = ['FIRE_DEPT', 'POLICE', 'NDRF', 'CPR_TRAINER', 'FIRST_AID_TRAINER', 'HEALTH_PARTNER', 'OTHER'];
@@ -30,6 +30,7 @@ const Ambassadors: React.FC = () => {
     try {
       setLoading(true);
       const data = await ambassadorService.getAll(filterType || undefined);
+      console.log('Ambassadors Data:', data);
       setAmbassadors(data);
     } catch (err) {
       console.error(err);
@@ -90,52 +91,235 @@ const Ambassadors: React.FC = () => {
 
       {loading ? (
         <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 600 }}>Loading ambassadors...</div>
-      ) : ambassadors.length === 0 ? (
-        <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: 'white', color: 'var(--text-muted)', border: '2px dashed var(--border)' }}>
-          <Users size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
-          <h3>No Ambassadors Yet</h3>
-          <p>Add fire department, police, NDRF, or training partners for drills.</p>
-        </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {ambassadors.map((a, index) => (
-            <motion.div
-              key={a.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="glass-card"
-              style={{ background: 'white', padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '1.5rem', alignItems: 'center' }}
-            >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '4px' }}>{a.name}</div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 10px', borderRadius: '20px' }}>
-                  {formatType(a.type)}
-                </span>
-                {a.organization && (
-                  <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{a.organization}</div>
-                )}
-              </div>
-              <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                {a.phone && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><Phone size={14} /> {a.phone}</div>}
-                {a.email && <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={14} /> {a.email}</div>}
-              </div>
-              <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                {a.serviceArea && <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14} /> {a.serviceArea}</div>}
-              </div>
-              <div>
-                <button
-                  onClick={() => handleDelete(a.id)}
-                  style={{ padding: '8px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Institutional Benefactors Section - Only shows general school donations */}
+          {(() => {
+            const schoolDonationsRaw = ambassadors.find(a => a.school?.donations)?.school?.donations?.filter((d: any) => !d.eventId) || [];
+            if (schoolDonationsRaw.length === 0) return null;
+
+            // Group by partner name to show total and consolidated messages
+            const groupedDonations = schoolDonationsRaw.reduce((acc: any, d: any) => {
+              const name = d.user?.name || 'Anonymous';
+              if (!acc[name]) {
+                acc[name] = { name, total: 0, descriptions: [] };
+              }
+              acc[name].total += d.amount;
+              if (d.description && d.description.trim()) {
+                acc[name].descriptions.push(d.description);
+              }
+              return acc;
+            }, {});
+
+            const benefactors = Object.values(groupedDonations);
+
+            return (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                style={{ 
+                  background: 'linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%)', 
+                  padding: '2.5rem', 
+                  borderRadius: '32px', 
+                  color: '#1e293b',
+                  boxShadow: '0 10px 40px -15px rgba(0,0,0,0.05)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  border: '1px solid #e2e8f0'
+                }}
+              >
+                {/* Background Decoration */}
+                <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '300px', height: '300px', background: 'radial-gradient(circle, var(--primary) 0%, transparent 70%)', opacity: 0.05, filter: 'blur(50px)' }} />
+                
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '2rem' }}>
+                    <div style={{ background: '#fef3c7', padding: '12px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(251, 191, 36, 0.15)' }}>
+                      <Award size={28} color="#d97706" />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900, letterSpacing: '-0.02em', color: '#0f172a' }}>Institutional Benefactors</h3>
+                      <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>The visionary partners fueling our safety mission</p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                    {benefactors.map((b: any, idx: number) => (
+                      <motion.div 
+                        key={idx}
+                        whileHover={{ y: -5, boxShadow: '0 12px 20px -8px rgba(0,0,0,0.05)' }}
+                        style={{ 
+                          background: 'white', 
+                          padding: '1.75rem', 
+                          borderRadius: '24px', 
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                          transition: 'all 0.3s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>{b.name}</div>
+                          <div style={{ 
+                            background: '#fffbeb', 
+                            color: '#d97706', 
+                            padding: '6px 12px', 
+                            borderRadius: '12px', 
+                            fontWeight: 900, 
+                            fontSize: '1rem',
+                            border: '1px solid #fef3c7'
+                          }}>
+                            ₹{b.total.toLocaleString()}
+                          </div>
+                        </div>
+                        
+                        {b.descriptions.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderLeft: '3px solid #fde68a', paddingLeft: '12px', marginTop: '4px' }}>
+                            {b.descriptions.map((desc: string, i: number) => (
+                              <p key={i} style={{ margin: 0, fontSize: '0.85rem', color: '#475569', fontStyle: 'italic', lineHeight: 1.5 }}>
+                                "{desc}"
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                          <Heart size={10} color="#e11d48" fill="#e11d48" /> Platinum Supporter
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })()}
+
+          {/* Ambassador List */}
+          {ambassadors.length === 0 ? (
+            <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: 'white', color: 'var(--text-muted)', border: '2px dashed var(--border)' }}>
+              <Users size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
+              <h3>No Ambassadors Available</h3>
+              <p>Add fire department, police, or training partners to get started.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {ambassadors.map((a, index) => {
+                const TypeIcon = a.type === 'FIRE_DEPT' ? Heart : a.type === 'POLICE' ? Award : Users;
+                return (
+                <motion.div
+                  key={a.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -4, boxShadow: '0 12px 24px -10px rgba(0,0,0,0.1)' }}
+                  transition={{ delay: index * 0.05 }}
+                  style={{ 
+                    background: 'white', 
+                    padding: '2rem', 
+                    borderRadius: '28px', 
+                    display: 'grid', 
+                    gridTemplateColumns: '1.5fr 1.5fr 0.5fr', 
+                    gap: '2.5rem', 
+                    alignItems: 'center', 
+                    border: '1px solid #f1f5f9',
+                    position: 'relative',
+                    transition: 'all 0.3s ease'
+                  }}
                 >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          ))}
+                  <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    <div style={{ 
+                      width: '64px', 
+                      height: '64px', 
+                      borderRadius: '20px', 
+                      background: 'var(--primary-light)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      color: 'var(--primary)',
+                      boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
+                    }}>
+                      <TypeIcon size={28} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 900, fontSize: '1.3rem', color: '#0f172a', marginBottom: '4px', letterSpacing: '-0.01em' }}>{a.name}</div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ 
+                          fontSize: '0.7rem', 
+                          fontWeight: 800, 
+                          textTransform: 'uppercase', 
+                          color: 'var(--primary)', 
+                          background: 'white', 
+                          padding: '4px 12px', 
+                          borderRadius: '12px',
+                          border: '1px solid var(--primary-light)',
+                          letterSpacing: '0.02em'
+                        }}>
+                          {formatType(a.type)}
+                        </span>
+                        {a.organization && (
+                          <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>• {a.organization}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: '10px', border: '1px solid #f1f5f9' }}>
+                    {a.phone && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#1e293b', fontSize: '0.95rem', fontWeight: 600 }}>
+                        <div style={{ background: 'white', padding: '6px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}><Phone size={14} color="var(--primary)" /></div>
+                        {a.phone}
+                      </div>
+                    )}
+                    {a.email && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#1e293b', fontSize: '0.95rem', fontWeight: 600 }}>
+                        <div style={{ background: 'white', padding: '6px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}><Mail size={14} color="var(--primary)" /></div>
+                        {a.email}
+                      </div>
+                    )}
+                    {a.serviceArea && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#64748b', fontSize: '0.85rem', fontWeight: 500 }}>
+                        <Users size={14} color="#94a3b8" /> {a.serviceArea}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <button
+                      onClick={() => handleDelete(a.id)}
+                      style={{ 
+                        width: '44px', 
+                        height: '44px', 
+                        borderRadius: '14px', 
+                        background: '#fff1f2', 
+                        color: '#e11d48', 
+                        border: '1px solid #ffe4e6', 
+                        cursor: 'pointer', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        marginLeft: 'auto',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = '#e11d48';
+                        e.currentTarget.style.color = 'white';
+                        e.currentTarget.style.transform = 'rotate(90deg)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = '#fff1f2';
+                        e.currentTarget.style.color = '#e11d48';
+                        e.currentTarget.style.transform = 'rotate(0deg)';
+                      }}
+                      title="Remove from directory"
+                    >
+                      <XCircle size={20} />
+                    </button>
+                  </div>
+                </motion.div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
-
       <AnimatePresence>
         {showAddModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>

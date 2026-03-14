@@ -195,5 +195,13 @@ export const partnerService = {
   getSchools: async () => {
     const response = await api.get('/partner/schools');
     return response.data;
+  },
+  getSchoolStats: async (schoolId: number) => {
+    const response = await api.get(`/partner/schools/${schoolId}/stats`);
+    return response.data;
+  },
+  createOrder: async (amount: number) => {
+    const response = await api.post('/partner/create-order', { amount });
+    return response.data;
   }
 };

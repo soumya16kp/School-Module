@@ -48,14 +48,63 @@ export class AmbassadorService {
   }
 
   static async listForSchool(schoolId: number, type?: string) {
+    // Fetch the querying school's general donations first
+    const currentSchool = await prisma.school.findUnique({
+      where: { id: schoolId },
+      include: {
+        donations: {
+          where: { eventId: null },
+          include: {
+            user: { select: { name: true } }
+          }
+        }
+      }
+    });
+
     const where: { OR: { schoolId: number | null }[]; type?: string } = {
       OR: [{ schoolId }, { schoolId: null }],
     };
     if (type) where.type = type as any;
 
-    return prisma.ambassadorDirectory.findMany({
+    const ambassadors = await prisma.ambassadorDirectory.findMany({
       where,
+      include: {
+        school: {
+          include: {
+            donations: {
+              include: {
+                user: {
+                  select: { name: true }
+                }
+              }
+            }
+          }
+        },
+        events: {
+          include: {
+            donations: {
+              include: {
+                user: {
+                  select: { name: true }
+                }
+              }
+            }
+          }
+        }
+      },
       orderBy: { name: "asc" },
+    });
+
+    console.log(`AmbassadorService - Fetched ${ambassadors.length} records. Current school context ID: ${schoolId}`);
+
+    // If an ambassador is global (no schoolId), we "virtualize" the current school context 
+    // so they show the sponsors of the school the user is currently viewing.
+    return ambassadors.map((a: any) => {
+      // If it's a global ambassador, or they don't have school donations attached yet, give them the current context
+      if ((!a.schoolId || !a.school) && currentSchool) {
+        return { ...a, school: currentSchool };
+      }
+      return a;
     });
   }
 
