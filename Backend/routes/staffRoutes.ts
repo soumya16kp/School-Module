@@ -33,9 +33,28 @@ router.post("/", async (req: AuthRequest, res) => {
   }
 });
 
+router.patch("/:id", async (req: AuthRequest, res) => {
+  try {
+    const school = await SchoolService.getSchoolByUserId(req.user!.id);
+    if (!school) return res.status(404).json({ error: "School not found" });
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid staff id" });
+    const updated = await StaffService.updateStaff(id, school.id, req.body);
+    if (!updated) return res.status(404).json({ error: "Staff member not found or not in your school" });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.delete("/:id", async (req: AuthRequest, res) => {
   try {
-    await StaffService.removeStaff(parseInt(req.params.id as string));
+    const school = await SchoolService.getSchoolByUserId(req.user!.id);
+    if (!school) return res.status(404).json({ error: "School not found" });
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid staff id" });
+    const removed = await StaffService.removeStaff(id, school.id);
+    if (!removed) return res.status(404).json({ error: "Staff member not found or not in your school" });
     res.json({ success: true });
   } catch (err: any) {
     res.status(400).json({ error: err.message });

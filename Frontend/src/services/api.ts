@@ -18,6 +18,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// On 401 (school API): clear token and redirect to login so session expiry is handled
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401 && !err.config.url?.startsWith('/parent')) {
+      localStorage.removeItem('school_token');
+      localStorage.removeItem('school_user');
+      if (window.location.pathname !== '/' && !window.location.pathname.startsWith('/parent')) {
+        window.location.href = '/';
+      }
+    }
+    return Promise.reject(err);
+  }
+);
+
 export const schoolService = {
   register: async (data: any) => {
     const response = await api.post('/schools/register', data);
@@ -278,6 +293,10 @@ export const staffService = {
   },
   add: async (data: any) => {
     const response = await api.post('/staff', data);
+    return response.data;
+  },
+  update: async (id: number, data: { name?: string; phone?: string; role?: string; assignedClass?: string; assignedSection?: string }) => {
+    const response = await api.patch(`/staff/${id}`, data);
     return response.data;
   },
   remove: async (id: number) => {

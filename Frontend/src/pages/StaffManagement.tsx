@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { staffService } from '../services/api';
-import { Users, UserPlus, Trash2, Phone, Mail, GraduationCap, Shield, MoreHorizontal, UserCheck } from 'lucide-react';
+import { Users, UserPlus, Trash2, Pencil, Phone, Mail, GraduationCap, Shield, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const StaffManagement: React.FC = () => {
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<any | null>(null);
+  const [editFormData, setEditFormData] = useState({ name: '', phone: '', role: 'CLASS_TEACHER', assignedClass: '', assignedSection: '' });
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -52,6 +54,35 @@ const StaffManagement: React.FC = () => {
       fetchStaff();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const openEdit = (member: any) => {
+    setEditingMember(member);
+    setEditFormData({
+      name: member.name ?? '',
+      phone: member.phone ?? '',
+      role: member.role ?? 'CLASS_TEACHER',
+      assignedClass: member.assignedClass != null ? String(member.assignedClass) : '',
+      assignedSection: member.assignedSection ?? ''
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember) return;
+    try {
+      await staffService.update(editingMember.id, {
+        name: editFormData.name,
+        phone: editFormData.phone,
+        role: editFormData.role,
+        assignedClass: editFormData.role === 'CLASS_TEACHER' ? editFormData.assignedClass : undefined,
+        assignedSection: editFormData.role === 'CLASS_TEACHER' ? editFormData.assignedSection : undefined
+      });
+      setEditingMember(null);
+      fetchStaff();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Error updating staff member');
     }
   };
 
@@ -121,21 +152,33 @@ const StaffManagement: React.FC = () => {
                     <td style={{ padding: '1.25rem 1.5rem' }}>
                       {member.role === 'CLASS_TEACHER' ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--primary-light)', color: 'var(--primary)', padding: '6px 12px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700 }}>
-                          <GraduationCap size={16} /> Class {member.assignedClass}-{member.assignedSection}
+                          <GraduationCap size={16} /> Class {member.assignedClass ?? '—'}-{member.assignedSection ?? '—'}
                         </div>
                       ) : (
                         <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Full School Access</span>
                       )}
                     </td>
                     <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right' }}>
-                      <button 
-                        onClick={() => handleDelete(member.id)}
-                        style={{ padding: '8px', borderRadius: '10px', color: '#ef4444', border: '1px solid #fee2e2', background: 'white', cursor: 'pointer', transition: 'all 0.2s' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2' }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'white' }}
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <button 
+                          onClick={() => openEdit(member)}
+                          style={{ padding: '8px', borderRadius: '10px', color: 'var(--primary)', border: '1px solid var(--primary-light)', background: 'white', cursor: 'pointer', transition: 'all 0.2s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary-light)' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'white' }}
+                          title="Edit"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(member.id)}
+                          style={{ padding: '8px', borderRadius: '10px', color: '#ef4444', border: '1px solid #fee2e2', background: 'white', cursor: 'pointer', transition: 'all 0.2s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'white' }}
+                          title="Remove"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </motion.tr>
                 ))}
@@ -152,6 +195,65 @@ const StaffManagement: React.FC = () => {
       )}
 
       <AnimatePresence>
+        {editingMember && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="glass-card"
+              style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '2.5rem', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}
+            >
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Edit Member</h3>
+                <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Update role and class assignment for {editingMember.email}</p>
+              </div>
+
+              <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input required value={editFormData.name} onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} type="text" placeholder="e.g. John Doe" />
+                </div>
+
+                <div className="form-group">
+                  <label>Phone Number</label>
+                  <input value={editFormData.phone} onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })} type="tel" placeholder="10 digit number" />
+                </div>
+
+                <div className="form-group">
+                  <label>Role</label>
+                  <select value={editFormData.role} onChange={e => setEditFormData({ ...editFormData, role: e.target.value })}>
+                    <option value="CLASS_TEACHER">Class Teacher</option>
+                    <option value="STAFF">General Staff</option>
+                  </select>
+                </div>
+
+                {editFormData.role === 'CLASS_TEACHER' && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="grid-2" 
+                    style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}
+                  >
+                    <div className="form-group">
+                      <label>Assigned Class</label>
+                      <input required type="number" value={editFormData.assignedClass} onChange={e => setEditFormData({ ...editFormData, assignedClass: e.target.value })} placeholder="e.g. 5" />
+                    </div>
+                    <div className="form-group">
+                      <label>Assigned Section</label>
+                      <input required type="text" value={editFormData.assignedSection} onChange={e => setEditFormData({ ...editFormData, assignedSection: e.target.value.toUpperCase() })} placeholder="e.g. A" />
+                    </div>
+                  </motion.div>
+                )}
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1, borderRadius: '12px', height: '48px', fontWeight: 700 }}>Save Changes</button>
+                  <button type="button" onClick={() => setEditingMember(null)} className="btn" style={{ background: '#f1f5f9', color: '#475569', borderRadius: '12px', height: '48px' }}>Cancel</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
         {showAddModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
             <motion.div

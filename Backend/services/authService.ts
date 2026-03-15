@@ -88,6 +88,8 @@ export class AuthService {
         email: user.email,
         role: user.role,
         schoolId: user.school?.id,
+        assignedClass: user.assignedClass ?? undefined,
+        assignedSection: user.assignedSection ?? undefined,
       },
       JWT_SECRET,
       { expiresIn: "24h" }
@@ -101,6 +103,8 @@ export class AuthService {
         name: user.name,
         role: user.role,
         school: user.school,
+        assignedClass: user.assignedClass ?? undefined,
+        assignedSection: user.assignedSection ?? undefined,
       },
     };
   }

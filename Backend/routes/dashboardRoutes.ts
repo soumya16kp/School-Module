@@ -56,11 +56,19 @@ router.get("/export", async (req: AuthRequest, res) => {
 
     const format = (req.query.format as string) || "csv";
     const academicYear = req.query.academicYear as string | undefined;
-    const classNum = req.query.class != null ? parseInt(String(req.query.class)) : undefined;
-    const section = req.query.section as string | undefined;
+    let classNum = req.query.class != null ? parseInt(String(req.query.class)) : undefined;
+    let section = req.query.section as string | undefined;
     const domain = (req.query.domain as string) || "all";
 
-    const { rows, schoolName } = await ExportService.getExportData(req.user.id, {
+    // CLASS_TEACHER: export only their assigned class/section
+    if (req.user!.role === "CLASS_TEACHER") {
+      if (req.user!.assignedClass != null) {
+        classNum = req.user!.assignedClass;
+        section = req.user!.assignedSection ?? undefined;
+      }
+    }
+
+    const { rows, schoolName } = await ExportService.getExportData(req.user!.id, {
       schoolId: school.id,
       academicYear,
       class: classNum,

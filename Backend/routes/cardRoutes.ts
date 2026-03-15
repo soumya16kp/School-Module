@@ -15,9 +15,15 @@ router.get("/bulk", authenticateJWT, async (req: AuthRequest, res) => {
     const school = await SchoolService.getSchoolByUserId(req.user.id);
     if (!school) return res.status(404).json({ message: "School not found" });
 
-    const classNum = req.query.class != null ? parseInt(String(req.query.class)) : undefined;
-    const section = (req.query.section as string) || undefined;
+    let classNum = req.query.class != null ? parseInt(String(req.query.class)) : undefined;
+    let section = (req.query.section as string) || undefined;
     const baseUrl = (req.query.baseUrl as string) || FRONTEND_URL;
+
+    // CLASS_TEACHER: only their assigned class/section
+    if (req.user.role === "CLASS_TEACHER" && req.user.assignedClass != null) {
+      classNum = req.user.assignedClass;
+      section = req.user.assignedSection ?? undefined;
+    }
 
     const pdf = await CardService.generateBulkPdf(school.id, baseUrl, {
       class: classNum,
