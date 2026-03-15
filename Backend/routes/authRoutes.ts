@@ -21,7 +21,15 @@ router.post("/send-otp", async (req, res) => {
     const result = await AuthService.sendLoginOtp(email, password);
     res.json(result);
   } catch (error: any) {
-    res.status(401).json({ message: error.message });
+    const msg = error?.message ?? "Unknown error";
+    // Only 401 for invalid credentials; email/config failures → 503
+    if (msg === "Invalid email or password.") {
+      return res.status(401).json({ message: msg });
+    }
+    console.error("[send-otp] email/config error:", msg);
+    res.status(503).json({
+      message: "Could not send OTP. Please try again later or contact support.",
+    });
   }
 });
 

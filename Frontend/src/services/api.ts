@@ -5,13 +5,17 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api',
 });
 
-// Add token to requests
+// Add token to requests (skip for unauthenticated auth login routes)
 api.interceptors.request.use((config) => {
-  const isParentRoute = config.url?.startsWith('/parent');
-  const token = isParentRoute 
-    ? localStorage.getItem('parent_token') 
+  const url = config.url ?? '';
+  const isAuthLogin = url === '/auth/send-otp' || url === '/auth/verify-otp' || url === '/auth/register';
+  if (isAuthLogin) {
+    return config; // no Bearer for login/register
+  }
+  const isParentRoute = url.startsWith('/parent');
+  const token = isParentRoute
+    ? localStorage.getItem('parent_token')
     : localStorage.getItem('school_token');
-  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -19,10 +23,13 @@ api.interceptors.request.use((config) => {
 });
 
 // On 401 (school API): clear token and redirect to login so session expiry is handled
+// Skip for auth login endpoints so user sees "Invalid email/password" or "Invalid OTP" on the form
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && !err.config.url?.startsWith('/parent')) {
+    const url = err.config?.url ?? '';
+    const isAuthLogin = url === '/auth/send-otp' || url === '/auth/verify-otp';
+    if (err.response?.status === 401 && !err.config?.url?.startsWith('/parent') && !isAuthLogin) {
       localStorage.removeItem('school_token');
       localStorage.removeItem('school_user');
       if (window.location.pathname !== '/' && !window.location.pathname.startsWith('/parent')) {
