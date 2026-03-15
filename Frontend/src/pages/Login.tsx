@@ -58,8 +58,12 @@ const Login: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      await authService.verifyLoginOtp(email, otp);
-      navigate('/dashboard');
+      const res = await authService.verifyLoginOtp(email, otp);
+      if (res.user?.role === 'PARTNER') {
+        navigate('/partner/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Verification failed.');
     } finally {

@@ -11,7 +11,7 @@ const canSeeTab = (role: string, tab: string): boolean => {
   if (!role) return false;
   switch (tab) {
     case 'school-details':
-      return ['SCHOOL_ADMIN', 'PRINCIPAL', 'CLASS_TEACHER'].includes(role);
+      return ['SCHOOL_ADMIN', 'PRINCIPAL', 'CLASS_TEACHER', 'DISTRICT_VIEWER'].includes(role);
     case 'events':
       return ['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'].includes(role);
     case 'ambassadors':
@@ -321,18 +321,13 @@ const Dashboard: React.FC = () => {
         </div>
 
 
-        {(school || role === 'DISTRICT_VIEWER' || role === 'PARTNER') ? (
+        {school ? (
 
           !canSeeTab(role, activeTab) ? (
             <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
               You don&apos;t have access to this section.
             </div>
           ) : activeTab === 'school-details' ? (
-            !school ? (
-              <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <p>District and Partner accounts view aggregate data on the Dashboard. Individual school profiles are managed by school administrators.</p>
-              </div>
-            ) : (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -370,7 +365,6 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
             </motion.div>
-            )
           ) : activeTab === 'events' ? (
             <Events />
           ) : activeTab === 'ambassadors' ? (
@@ -379,8 +373,7 @@ const Dashboard: React.FC = () => {
             <Certifications />
           ) : activeTab === 'dashboard' ? (
             <div>
-              {role === 'DISTRICT_VIEWER' && (
-                districtOverview ? (
+              {role === 'DISTRICT_VIEWER' && districtOverview && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -434,13 +427,8 @@ const Dashboard: React.FC = () => {
                     </table>
                   </div>
                 </motion.div>
-                ) : (
-                  <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Loading district data...
-                  </div>
-                )
               )}
-              {school && role !== 'DISTRICT_VIEWER' && overview && (
+              {role !== 'DISTRICT_VIEWER' && overview && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -469,7 +457,6 @@ const Dashboard: React.FC = () => {
                   )}
                 </motion.div>
               )}
-            {school && (
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
               {/* School Details */}
               <motion.div 
@@ -540,7 +527,6 @@ const Dashboard: React.FC = () => {
                 </div>
               </motion.div>
             </div>
-            )}
             </div>
           ) : (
             <ChildRecords />
