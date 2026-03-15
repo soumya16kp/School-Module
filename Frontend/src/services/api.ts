@@ -34,8 +34,14 @@ export const schoolService = {
 };
 
 export const authService = {
-  login: async (credentials: any) => {
-    const response = await api.post('/auth/login', credentials);
+  /** Step 1: verify email+password and trigger OTP email */
+  sendLoginOtp: async (email: string, password: string) => {
+    const response = await api.post('/auth/send-otp', { email, password });
+    return response.data; // { sent: true, devOtp?: string }
+  },
+  /** Step 2: verify OTP and receive JWT */
+  verifyLoginOtp: async (email: string, code: string) => {
+    const response = await api.post('/auth/verify-otp', { email, code });
     if (response.data.token) {
       localStorage.setItem('school_token', response.data.token);
       localStorage.setItem('school_user', JSON.stringify(response.data.user));

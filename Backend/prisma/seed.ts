@@ -53,12 +53,6 @@ async function main() {
   console.log("School:", school.schoolName);
 
   // --- 2. Users ---
-  // Free schoolId if another user has it (unique constraint: one user per school)
-  await prisma.user.updateMany({
-    where: { schoolId: school.id, email: { not: "admin@demo-school.com" } },
-    data: { schoolId: null },
-  });
-
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@demo-school.com" },
     update: { schoolId: school.id, password: hashedPassword, name: "Priya Sharma", role: "SCHOOL_ADMIN" },

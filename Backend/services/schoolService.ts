@@ -33,7 +33,7 @@ export class SchoolService {
         pocEmail: data.pocEmail,
         academicYear: data.academicYear,
         channel: data.channel,
-        user: {
+        users: {
           connect: { id: userId }
         }
       },
@@ -45,8 +45,8 @@ export class SchoolService {
   static async getSchoolByUserId(userId: number) {
     return prisma.school.findFirst({
       where: {
-        user: {
-          id: userId
+        users: {
+          some: { id: userId }
         }
       },
       include: {

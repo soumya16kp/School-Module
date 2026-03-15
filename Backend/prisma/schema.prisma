@@ -13,7 +13,7 @@ model User {
   email     String   @unique
   password  String
   name      String
-  schoolId  Int?     @unique
+  schoolId  Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   role      UserRole @default(SCHOOL_ADMIN)
@@ -48,7 +48,7 @@ model School {
   certifications   Certification[]
   children         Child[]
   events           Event[]
-  user             User?
+  users            User[]
   donations        Donation[]
 }
 
@@ -229,12 +229,14 @@ enum UserRole {
 
 model OtpCode {
   id        Int      @id @default(autoincrement())
-  phone     String
+  phone     String?
+  email     String?
   code      String
   expiresAt DateTime
   createdAt DateTime @default(now())
 
   @@index([phone])
+  @@index([email])
 }
 
 model Donation {
