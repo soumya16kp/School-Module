@@ -90,7 +90,7 @@ router.patch("/requests/:id/approve", authenticateParentJWT, async (req: ParentR
       },
       select: { id: true }
     });
-    const childIds = children.map((c) => c.id);
+    const childIds = children.map((c: { id: number }) => c.id);
     if (!childIds.includes(existing.childId)) {
       return res.status(403).json({ message: "You can only approve requests for your own children." });
     }

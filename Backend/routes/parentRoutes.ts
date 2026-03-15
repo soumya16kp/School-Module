@@ -77,7 +77,7 @@ router.get("/children/:id/access-history", authenticateParentJWT, async (req: Pa
       take: 100
     });
 
-    const entries = logs.map((log) => {
+    const entries = logs.map((log: { id: number; action: string; actorType: string; metadata: unknown; createdAt: Date }) => {
       const meta = (log.metadata as Record<string, unknown>) || {};
       let description: string;
       if (log.action === "emergency_access_granted") {
