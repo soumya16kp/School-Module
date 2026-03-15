@@ -154,6 +154,8 @@ This document focuses on **data breach and compliance risks in features and beha
 - **Optional – step-up for multiple children:** When a parent has more than one child linked, after OTP verification consider an extra step: “Select which child you are the legal guardian of” (checkbox/list) and store that selection for audit. Or send a second OTP to the other parent’s number for “confirm you are the guardian of [Child X]” when switching to a different child. This is a product choice; at minimum, the notice above and school-side registration clarity reduce risk.
 - **Policy:** Document that the school is responsible for ensuring the contact numbers they enter belong to the legal guardian(s).
 
+**Implemented:** Parent Login shows the in-app notice. Child registration form (Records → Add Student) labels "Father's number (for parent login)" and "Mother's number (for parent login)" with helper text that only the designated guardian should use these numbers and that the school is responsible for ensuring they belong to the legal guardian(s).
+
 ---
 
 ### 2.2 Emergency access uses simple child ID in URL

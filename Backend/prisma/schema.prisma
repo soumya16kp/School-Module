@@ -77,6 +77,18 @@ model Child {
   school         School           @relation(fields: [schoolId], references: [id])
   healthRecords  HealthRecord[]
   accessRequests AccessRequest[]
+  dataAccessLogs ChildDataAccessLog[]
+}
+
+model ChildDataAccessLog {
+  id         Int      @id @default(autoincrement())
+  childId    Int
+  actorType  String   // "school_user" | "parent" | "emergency_responder"
+  action     String   // "view_profile" | "view_health" | "export" | "emergency_access_granted" | "emergency_view"
+  ip         String?
+  metadata   Json?    // e.g. { requesterName, requesterRole, accessRequestId }
+  createdAt  DateTime @default(now())
+  child      Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
 }
 
 model AccessRequest {

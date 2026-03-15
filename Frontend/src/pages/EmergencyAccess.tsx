@@ -131,29 +131,24 @@ const EmergencyAccess: React.FC = () => {
                 <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Expires: {new Date(healthData.expiresAt).toLocaleString()}</p>
               </div>
               
-              <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                <h3 style={{ fontWeight: '700', color: '#1e3a8a', marginBottom: '1rem' }}>🎓 Student Profile</h3>
+              <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '1.5rem', marginBottom: '1rem' }}>
+                <h3 style={{ fontWeight: '700', color: '#1e3a8a', marginBottom: '1rem' }}>Student (emergency-relevant only)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.9rem' }}>
                   <div><span style={{ color: '#64748b' }}>Name:</span> <strong>{healthData.student.name}</strong></div>
                   <div><span style={{ color: '#64748b' }}>Class:</span> <strong>{healthData.student.class}-{healthData.student.section}</strong></div>
-                  <div><span style={{ color: '#64748b' }}>Gender:</span> <strong>{healthData.student.gender}</strong></div>
                   <div><span style={{ color: '#64748b' }}>School:</span> <strong>{healthData.student.school}</strong></div>
+                  <div><span style={{ color: '#64748b' }}>Blood group:</span> <strong>{healthData.student.bloodGroup}</strong></div>
+                  <div style={{ gridColumn: '1 / -1' }}><span style={{ color: '#64748b' }}>Allergies:</span> <strong>{healthData.student.allergies}</strong></div>
                 </div>
               </div>
 
-              {healthData.healthSummary && (
-                <div style={{ background: '#f0fdf4', borderRadius: '16px', padding: '1.5rem', border: '1px solid #dcfce7' }}>
-                  <h3 style={{ fontWeight: '700', color: '#166534', marginBottom: '1rem' }}>💊 Health Summary ({healthData.healthSummary.academicYear})</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.9rem' }}>
-                    <div><span style={{ color: '#64748b' }}>Height:</span> <strong>{healthData.healthSummary.height} cm</strong></div>
-                    <div><span style={{ color: '#64748b' }}>Weight:</span> <strong>{healthData.healthSummary.weight} kg</strong></div>
-                    <div><span style={{ color: '#64748b' }}>BMI:</span> <strong>{healthData.healthSummary.bmi} ({healthData.healthSummary.bmiCategory})</strong></div>
-                    <div><span style={{ color: '#64748b' }}>Vision:</span> <strong>{healthData.healthSummary.visionOverall || 'Normal'}</strong></div>
-                    <div><span style={{ color: '#64748b' }}>Dental:</span> <strong>{healthData.healthSummary.dentalOverallHealth || 'Normal'}</strong></div>
-                    <div><span style={{ color: '#64748b' }}>Immunized:</span> <strong>{healthData.healthSummary.immunization ? 'Yes' : 'No'}</strong></div>
-                  </div>
+              <div style={{ background: '#f0fdf4', borderRadius: '16px', padding: '1.5rem', border: '1px solid #dcfce7' }}>
+                <h3 style={{ fontWeight: '700', color: '#166534', marginBottom: '0.75rem' }}>Emergency health info</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
+                  <div><span style={{ color: '#64748b' }}>Immunization up to date:</span> <strong>{healthData.immunizationUpToDate ? 'Yes' : 'No'}</strong></div>
+                  <div><span style={{ color: '#64748b' }}>Last check-up summary:</span> <strong>{healthData.lastCheckupSummary}</strong></div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 

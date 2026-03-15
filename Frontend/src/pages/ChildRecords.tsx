@@ -463,24 +463,29 @@ const ChildRecords: React.FC = () => {
 
                 <div className="grid-2">
                   <div className="form-group">
-                    <label>Father's Contact No</label>
+                    <label>Father's number (for parent login)</label>
                     <input 
                       required 
                       type="tel" 
                       value={formData.fatherNumber}
                       onChange={(e) => setFormData({...formData, fatherNumber: e.target.value})}
+                      placeholder="Guardian contact"
                     />
                   </div>
                   <div className="form-group">
-                    <label>Mother's Contact No</label>
+                    <label>Mother's number (for parent login)</label>
                     <input 
                       required 
                       type="tel" 
                       value={formData.motherNumber}
                       onChange={(e) => setFormData({...formData, motherNumber: e.target.value})}
+                      placeholder="Guardian contact"
                     />
                   </div>
                 </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                  Only the designated guardian should use these numbers for parent portal login. The school is responsible for ensuring these contacts belong to the legal guardian(s).
+                </p>
 
                 <div className="grid-2">
                   <div className="form-group">

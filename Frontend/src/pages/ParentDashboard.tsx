@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { parentService } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Activity, Calendar, FileText,
+  Activity, Calendar, FileText, History,
   LogOut, ShieldAlert, CheckCircle2, Award, HeartPulse,
   ChevronRight, ArrowLeft, Download, Info, Shield, Bell, X, Check, Link as LinkIcon, CreditCard
 } from 'lucide-react';
@@ -21,6 +21,7 @@ const ParentDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('health');
   const [selectedProgramYear, setSelectedProgramYear] = useState<string>('');
   const [accessRequests, setAccessRequests] = useState<any[]>([]);
+  const [accessHistory, setAccessHistory] = useState<{ id: number; action: string; actorType: string; description: string; createdAt: string }[]>([]);
   const [idCardLoading, setIdCardLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -91,6 +92,18 @@ const ParentDashboard: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'reports') fetchAccessRequests();
   }, [activeTab]);
+
+  const fetchAccessHistory = async () => {
+    if (!id) return;
+    try {
+      const entries = await parentService.getAccessHistory(parseInt(id));
+      setAccessHistory(entries);
+    } catch (e) { setAccessHistory([]); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'access-history') fetchAccessHistory();
+  }, [activeTab, id]);
 
   const handleLogout = () => {
     parentService.logout();
@@ -229,6 +242,7 @@ const ParentDashboard: React.FC = () => {
             { id: 'health', label: 'Health Status', icon: HeartPulse },
             { id: 'programs', label: 'Safety & Programs', icon: Calendar },
             { id: 'reports', label: 'Medical Reports', icon: FileText },
+            { id: 'access-history', label: 'Access History', icon: History },
           ].map(tab => (
             <button
               key={tab.id}
@@ -519,6 +533,50 @@ const ParentDashboard: React.FC = () => {
                    )}
                  </div>
                </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'access-history' && (
+            <motion.div key="access-history" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <div className="glass-card" style={{ padding: '2rem', background: 'white', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem' }}>
+                  <History size={22} color="#1e3a8a" />
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Who has accessed my child&apos;s data</h3>
+                </div>
+                <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                  This log shows when emergency access was granted and when your child&apos;s emergency data was viewed by responders.
+                </p>
+                {accessHistory.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No access events recorded yet.</p>
+                ) : (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {accessHistory.map((entry) => (
+                      <li
+                        key={entry.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1rem',
+                          padding: '1rem 1.25rem',
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          background: '#f8fafc',
+                        }}
+                      >
+                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                          <Shield size={20} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontWeight: '600', color: '#1e293b', margin: 0 }}>{entry.description}</p>
+                          <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>
+                            {new Date(entry.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

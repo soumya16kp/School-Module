@@ -230,6 +230,10 @@ export const parentService = {
     const response = await api.post(`/parent/card-token/${childId}`);
     return response.data.token as string;
   },
+  getAccessHistory: async (childId: number) => {
+    const response = await api.get(`/parent/children/${childId}/access-history`);
+    return response.data.entries as { id: number; action: string; actorType: string; description: string; createdAt: string }[];
+  },
   logout: () => {
     localStorage.removeItem('parent_token');
     localStorage.removeItem('parent_info');
