@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only index.ts",
-    "build": "npx prisma generate && npx prisma db push && cross-env CI=false tsc",
+    "build": "npx prisma generate && npx prisma db push && tsc",
     "fix:schoolid": "npx ts-node prisma/fix-duplicate-schoolId.ts",
     "fix:user-role": "npx ts-node prisma/fix-user-role-enum.ts",
     "relink:school-users": "npx ts-node prisma/relink-school-users.ts",
