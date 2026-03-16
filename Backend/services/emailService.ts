@@ -14,6 +14,7 @@
 import nodemailer from "nodemailer";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
+const EMAIL_DISABLED = process.env.DISABLE_EMAIL === "true";
 
 const OTP_HTML = (code: string) => `
   <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f8fafc;border-radius:12px;">
@@ -80,6 +81,11 @@ function createTransporter() {
 }
 
 export async function sendOtpEmail(email: string, code: string): Promise<void> {
+  if (EMAIL_DISABLED) {
+    console.log(`[EMAIL OTP DISABLED] To: ${email} | Code: ${code}`);
+    return;
+  }
+
   const brevoKey = process.env.BREVO_API_KEY?.trim();
 
   if (brevoKey) {

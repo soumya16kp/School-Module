@@ -6,6 +6,7 @@ import { sendOtpEmail } from "./emailService";
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
 const IS_DEV = process.env.NODE_ENV !== "production";
+const EMAIL_DISABLED = process.env.DISABLE_EMAIL === "true";
 
 export class AuthService {
   static async register(data: any) {
@@ -28,7 +29,8 @@ export class AuthService {
 
   /**
    * Step 1: Verify email + password, then send OTP to email.
-   * Returns { sent: true } on success. In dev (no SMTP), also returns devOtp.
+   * Returns { sent: true }. When DISABLE_EMAIL=true (or in dev with no SMTP),
+   * also returns devOtp so you can use it directly.
    */
   static async sendLoginOtp(email: string, password: string) {
     const user = await prisma.user.findUnique({
@@ -52,7 +54,7 @@ export class AuthService {
     await sendOtpEmail(email, code);
 
     const devOtp =
-      IS_DEV && !process.env.SMTP_HOST ? { devOtp: code } : {};
+      EMAIL_DISABLED || (IS_DEV && !process.env.SMTP_HOST) ? { devOtp: code } : {};
     return { sent: true, ...devOtp };
   }
 
