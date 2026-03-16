@@ -26,9 +26,10 @@ router.post("/send-otp", async (req, res) => {
     if (msg === "Invalid email or password.") {
       return res.status(401).json({ message: msg });
     }
-    console.error("[send-otp] email/config error:", msg);
+    console.error("[send-otp] email/config error:", msg, error?.stack ?? "");
     res.status(503).json({
       message: "Could not send OTP. Please try again later or contact support.",
+      _debug: process.env.NODE_ENV !== "production" ? msg : undefined,
     });
   }
 });
