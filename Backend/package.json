@@ -23,6 +23,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.4.0",
+    "@types/nodemailer": "^7.0.11",
     "@types/pdfkit": "^0.17.5",
     "@types/pg": "^8.18.0",
     "@types/qrcode": "^1.5.6",
@@ -42,9 +43,7 @@
     "twilio": "^5.13.0",
     "typescript": "^5.9.3"
   },
-  "devDependencies": {
-    "@types/nodemailer": "^7.0.11"
-  },
+  "devDependencies": {},
   "prisma": {
     "seed": "npx ts-node prisma/seed.ts"
   }
