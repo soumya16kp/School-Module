@@ -154,6 +154,25 @@ export class ParentService {
       }
     }
 
+    // Get attendance history from events
+    const allEvents = await prisma.event.findMany({
+      where: { schoolId: child.schoolId },
+      orderBy: { scheduledAt: 'desc' }
+    });
+
+    const attendanceHistory = allEvents.map((ev: any) => {
+      const attJson = ev.attendanceJson as any;
+      const status = attJson?.studentStatuses?.[childId] || (ev.completedAt ? 'Present' : 'Scheduled'); 
+      return {
+        eventId: ev.id,
+        title: ev.title,
+        type: ev.type,
+        scheduledAt: ev.scheduledAt,
+        completedAt: ev.completedAt,
+        status: status
+      };
+    }).filter((e: any) => e.status !== 'Scheduled' || e.scheduledAt);
+
     return {
       child: {
         id: child.id,
@@ -168,6 +187,7 @@ export class ParentService {
         }
       },
       healthRecords: child.healthRecords,
+      attendanceHistory,
       upcomingEvents,
       notifications: notifications.slice(0, 10)
     };

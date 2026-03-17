@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { childService, cardService, dashboardService } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { Search, Plus, Phone, GraduationCap, CheckCircle2, Clock, XCircle, ChevronRight, User, CreditCard, Download } from 'lucide-react';
+import { Search, Plus, Phone, GraduationCap, CheckCircle2, Clock, XCircle, ChevronRight, User, CreditCard, Download, Edit, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,6 +19,8 @@ const ChildRecords: React.FC = () => {
   const [filterClass, setFilterClass] = useState('');
   const [filterSection, setFilterSection] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showBulkCardModal, setShowBulkCardModal] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
@@ -93,6 +95,21 @@ const ChildRecords: React.FC = () => {
       fetchChildren();
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Error adding child record';
+      toast(errorMsg, 'error');
+      console.error(err);
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await childService.update(editFormData.id, editFormData);
+      setShowEditModal(false);
+      setEditFormData(null);
+      fetchChildren();
+      toast('Student details updated successfully', 'success');
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Error updating child record';
       toast(errorMsg, 'error');
       console.error(err);
     }
@@ -338,11 +355,21 @@ const ChildRecords: React.FC = () => {
 
               {/* Contact Info */}
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>CONTACT</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>CONTACT & DETAILS</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Phone size={14} color="var(--primary)" /> {child.mobile}
                   </div>
+                  {(child.fatherNumber || child.motherNumber) && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Parents: {child.fatherNumber} {child.motherNumber && `/ ${child.motherNumber}`}
+                    </div>
+                  )}
+                  {child.emailId && (
+                     <div style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                       <Mail size={12} /> {child.emailId}
+                     </div>
+                  )}
                 </div>
               </div>
 
@@ -369,7 +396,16 @@ const ChildRecords: React.FC = () => {
                   <StatusBadge status={child.status} />
               </div>
 
-              <div style={{ color: 'var(--text-muted)', display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                 {['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'].includes(role) && (
+                   <button
+                     onClick={(e) => { e.stopPropagation(); setEditFormData(child); setShowEditModal(true); }}
+                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px' }}
+                     title="Edit Record"
+                   >
+                     <Edit size={18} />
+                   </button>
+                 )}
                  <ChevronRight size={20} />
               </div>
 
@@ -512,6 +548,135 @@ const ChildRecords: React.FC = () => {
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                   <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Register Record</button>
                   <button type="button" onClick={() => setShowAddModal(false)} className="btn" style={{ background: '#f1f5f9' }}>Cancel</button>
+                </div>
+              </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {showEditModal && editFormData && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="glass-card" 
+              style={{ background: 'white', width: '100%', maxWidth: '800px', padding: '0', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            >
+              <div style={{ background: 'linear-gradient(135deg, var(--primary-light) 0%, white 100%)', padding: '2rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.75rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Edit Student Record</h3>
+                  <p style={{ color: 'var(--text-muted)', margin: 0 }}>Update details for {editFormData.name}.</p>
+                </div>
+                <button onClick={() => setShowEditModal(false)} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <XCircle size={18} color="var(--text-muted)" />
+                </button>
+              </div>
+
+              <div style={{ padding: '2rem', overflowY: 'auto' }}>
+                <form onSubmit={handleEditSubmit}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1.5rem' }}>
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <input 
+                      required 
+                      type="text" 
+                      value={editFormData.name || ''}
+                      onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Class (No.)</label>
+                    <input 
+                      required 
+                      type="number" 
+                      value={editFormData.class || ''}
+                      onChange={(e) => setEditFormData({...editFormData, class: e.target.value})}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Section</label>
+                    <input 
+                      required 
+                      type="text" 
+                      maxLength={1}
+                      value={editFormData.section || ''}
+                      onChange={(e) => setEditFormData({...editFormData, section: e.target.value.toUpperCase()})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Father's Contact No</label>
+                    <input 
+                      required 
+                      type="tel" 
+                      value={editFormData.fatherNumber || ''}
+                      onChange={(e) => setEditFormData({...editFormData, fatherNumber: e.target.value})}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Mother's Contact No</label>
+                    <input 
+                      required 
+                      type="tel" 
+                      value={editFormData.motherNumber || ''}
+                      onChange={(e) => setEditFormData({...editFormData, motherNumber: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Student Email (Optional)</label>
+                    <input 
+                      type="email" 
+                      value={editFormData.emailId || ''}
+                      onChange={(e) => setEditFormData({...editFormData, emailId: e.target.value})}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Primary Mobile No</label>
+                    <input 
+                      required 
+                      type="tel" 
+                      value={editFormData.mobile || ''}
+                      onChange={(e) => setEditFormData({...editFormData, mobile: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Gender</label>
+                    <select 
+                      value={editFormData.gender || 'Male'}
+                      onChange={(e) => setEditFormData({...editFormData, gender: e.target.value})}
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Other Parameters / Notes</label>
+                  <textarea 
+                    value={editFormData.notes || ''}
+                    onChange={(e) => setEditFormData({...editFormData, notes: e.target.value})}
+                    rows={3}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Update Record</button>
+                  <button type="button" onClick={() => setShowEditModal(false)} className="btn" style={{ background: '#f1f5f9' }}>Cancel</button>
                 </div>
               </form>
               </div>

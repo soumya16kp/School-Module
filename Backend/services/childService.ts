@@ -56,4 +56,55 @@ export class ChildService {
       data: { status },
     });
   }
+
+  static async updateChild(childId: number, data: any) {
+    return prisma.child.update({
+      where: { id: childId },
+      data: {
+        name: data.name,
+        class: typeof data.class !== 'undefined' ? parseInt(data.class) : undefined,
+        section: data.section,
+        fatherNumber: data.fatherNumber,
+        motherNumber: data.motherNumber,
+        emailId: data.emailId,
+        mobile: data.mobile,
+        gender: data.gender,
+        notes: data.notes,
+      },
+    });
+  }
+
+  static async getChildWithAttendance(childId: number, schoolId: number) {
+    const child = await prisma.child.findFirst({
+      where: { id: childId, schoolId },
+      include: {
+        healthRecords: {
+          orderBy: { academicYear: 'desc' }
+        }
+      }
+    });
+
+    if (!child) return null;
+
+    // Fetch all events for the school to find attendance
+    const events = await prisma.event.findMany({
+      where: { schoolId },
+      orderBy: { scheduledAt: 'desc' }
+    });
+
+    const attendanceHistory = events.map((ev: any) => {
+      const attJson = ev.attendanceJson as any;
+      const status = attJson?.studentStatuses?.[childId] || (ev.completedAt ? 'Present' : 'Scheduled'); 
+      return {
+        eventId: ev.id,
+        title: ev.title,
+        type: ev.type,
+        scheduledAt: ev.scheduledAt,
+        completedAt: ev.completedAt,
+        status: status
+      };
+    }).filter((e: any) => e.status !== 'Scheduled' || e.scheduledAt); // Keep future scheduled events or completed ones
+
+    return { ...child, attendanceHistory };
+  }
 }

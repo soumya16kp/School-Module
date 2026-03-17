@@ -1,46 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { eventService } from '../services/api';
-import { getBandLabelsForEventType } from '../config/ageBands';
-import { CalendarPlus, Plus, XCircle, Calendar, User, CheckCircle2, Users, Info } from 'lucide-react';
+import { eventService, schoolService, ambassadorService } from '../services/api';
+import { XCircle, CheckCircle2, Info, LayoutList, Calendar as CalendarIconUI, ShieldCheck, Search, Users, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CalendarView from '../components/CalendarView';
 
-const EVENT_TYPES = [
-  'GENERAL_CHECKUP', 'DENTAL_SCREENING', 'VISION_SCREENING', 'BMI_ASSESSMENT',
-  'NUTRITION_SESSION', 'HPV_AWARENESS', 'EXPERT_SESSION',
-  'FIRE_DRILL', 'BLACKOUT_DRILL', 'BUNKER_DRILL', 'CPR_TRAINING', 'FIRST_AID_TRAINING', 'OTHER'
+const PREDEFINED_PROGRAMS = [
+  { type: 'GENERAL_CHECKUP', title: 'Annual Health Check-up', description: 'Comprehensive health screening for all students.' },
+  { type: 'MENTAL_WELLNESS', title: 'Mental Wellness Session', description: 'Interactive workshop on emotional health and resilience.' },
+  { type: 'NUTRITION_SESSION', title: 'Nutrition & Dietetics', description: 'Guidance on healthy eating habits and balanced diet.' },
+  { type: 'FIRE_DRILL', title: 'Fire Safety Drill', description: 'Emergency evacuation practice and fire safety training.' }
 ];
-
-const DRILL_TYPES = ['FIRE_DRILL', 'BLACKOUT_DRILL', 'BUNKER_DRILL', 'CPR_TRAINING', 'FIRST_AID_TRAINING'];
-
-const formatEventType = (t: string) => t.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-
-const isDrill = (type: string) => DRILL_TYPES.includes(type);
 
 const Events: React.FC = () => {
   const [events, setEvents] = useState<any[]>([]);
+  const [school, setSchool] = useState<any>(null);
+  const [ambassadors, setAmbassadors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [academicYear, setAcademicYear] = useState('2024-2025');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'drills' | 'health'>('all');
+  const [academicYear] = useState('2024-2025');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [showScheduleModal, setShowScheduleModal] = useState<any>(null);
+  const [selectedAmbassadorId, setSelectedAmbassadorId] = useState<string>('');
   const [attendanceModalEvent, setAttendanceModalEvent] = useState<any>(null);
   const [attendanceForm, setAttendanceForm] = useState({ totalPresent: '', totalExpected: '', notes: '' });
-  const [formData, setFormData] = useState({
-    type: 'GENERAL_CHECKUP',
-    title: '',
-    description: '',
-    academicYear: '2024-2025',
-    scheduledAt: ''
-  });
+  const [paying, setPaying] = useState(false);
+
+  const [children, setChildren] = useState<any[]>([]);
+  const [attSearch, setAttSearch] = useState('');
+  const [attFilterClass, setAttFilterClass] = useState('');
+  const [attFilterSection, setAttFilterSection] = useState('');
+  const [studentStatuses, setStudentStatuses] = useState<Record<number, 'Present' | 'Absent'>>({});
 
   useEffect(() => {
-    fetchEvents();
+    fetchInitialData();
   }, [academicYear]);
 
-  const fetchEvents = async () => {
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const data = await eventService.getAll(academicYear);
-      setEvents(data);
+      const [eventsData, schoolData, ambassadorsData] = await Promise.all([
+        eventService.getAll(academicYear),
+        schoolService.getMySchool(),
+        ambassadorService.getAll()
+      ]);
+      setEvents(eventsData);
+      setSchool(schoolData);
+      setAmbassadors(ambassadorsData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -48,306 +52,399 @@ const Events: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await eventService.create({
-        ...formData,
-        scheduledAt: formData.scheduledAt ? new Date(formData.scheduledAt).toISOString() : undefined
-      });
-      setShowAddModal(false);
-      setFormData({ type: 'GENERAL_CHECKUP', title: '', description: '', academicYear: '2024-2025', scheduledAt: '' });
-      fetchEvents();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'Error creating event');
-    }
+  const fetchEvents = async () => {
+    const data = await eventService.getAll(academicYear);
+    setEvents(data);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this event?')) return;
+  const loadScript = (src: string) => {
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayGap = async () => {
+    if (!school) return;
+    const collected = school.donations?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0;
+    const goal = school.annualCreditGoal || 50000;
+    const gap = Math.max(0, goal - collected);
+
+    if (gap <= 0) {
+      alert("Credit pool is already fully funded!");
+      return;
+    }
+
+    setPaying(true);
+    const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
+    if (!res) {
+      alert("Razorpay SDK failed to load.");
+      setPaying(false);
+      return;
+    }
+
     try {
-      await eventService.delete(id);
-      fetchEvents();
+      const order = await schoolService.createOrder(gap);
+      if (!order || !order.id) throw new Error("Order creation failed");
+
+      const options = {
+        key: order.razorpay_key_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: "EduCentral",
+        description: "Annual Health & Safety Program Unlock",
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+             const { partnerService } = await import('../services/api');
+             await partnerService.sponsor({
+                schoolId: school.id,
+                amount: gap,
+                type: 'GENERAL',
+                description: `Institution credit pool bridge payment`,
+                paymentId: response.razorpay_payment_id
+             });
+             alert('Payment Successful! Your annual program calendar is now unlocked.');
+             window.location.reload();
+          } catch (err) {
+            console.error(err);
+            alert('Failed to record payment. Please contact support.');
+          } finally {
+            setPaying(false);
+          }
+        },
+        theme: { color: "#db2777" },
+        modal: { ondismiss: () => setPaying(false) }
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.open();
     } catch (err) {
       console.error(err);
+      alert('Failed to initiate payment.');
+      setPaying(false);
     }
   };
 
-  const handleMarkComplete = async (id: number) => {
+  const handleAssignProgram = async (program: any, date: string) => {
     try {
-      await eventService.update(id, { completedAt: new Date().toISOString() });
+      await eventService.create({
+        type: program.type,
+        title: program.title,
+        description: program.description,
+        academicYear,
+        scheduledAt: new Date(date).toISOString(),
+        ambassadorId: selectedAmbassadorId ? parseInt(selectedAmbassadorId) : undefined
+      });
+      setShowScheduleModal(null);
+      setSelectedAmbassadorId('');
       fetchEvents();
+      alert(`Program "${program.title}" assigned successfully.`);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to assign program');
+    }
+  };
+
+  const handleMarkComplete = async (ev: any) => {
+    if (!ev.ambassadorId) {
+      if (!confirm('No ambassador is assigned to this event. An invoice will NOT be generated. Continue anyway?')) {
+        return;
+      }
+    }
+    try {
+      await eventService.update(ev.id, { completedAt: new Date().toISOString() });
+      fetchEvents();
+      alert(`Event "${ev.title}" marked as completed. ${ev.ambassadorId ? 'Invoice sent to ambassador.' : ''}`);
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Failed to mark as completed');
     }
   };
 
-  const handleMarkIncomplete = async (id: number) => {
-    try {
-      await eventService.update(id, { completedAt: null, attendanceJson: null });
-      fetchEvents();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to mark as incomplete');
-    }
-  };
-
-  const openAttendanceModal = (ev: any) => {
-    const att = ev.attendanceJson as { totalPresent?: number; totalExpected?: number; notes?: string } | null;
+  const openAttendanceModal = async (ev: any) => {
+    const att = ev.attendanceJson as any;
     setAttendanceModalEvent(ev);
     setAttendanceForm({
       totalPresent: att?.totalPresent?.toString() ?? '',
       totalExpected: att?.totalExpected?.toString() ?? '',
       notes: att?.notes ?? '',
     });
+    setStudentStatuses(att?.studentStatuses ?? {});
+    
+    // Load children if not loaded
+    if (children.length === 0) {
+      try {
+        const { childService } = await import('../services/api');
+        const data = await childService.getAll();
+        setChildren(data);
+      } catch (err) {
+        console.error('Failed to load children', err);
+      }
+    }
   };
 
   const handleAttendanceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!attendanceModalEvent) return;
-    const present = parseInt(attendanceForm.totalPresent, 10);
-    const expected = parseInt(attendanceForm.totalExpected, 10);
-    if (isNaN(present) || isNaN(expected) || present < 0 || expected < 0) {
-      alert('Please enter valid numbers for present and expected.');
-      return;
-    }
-    if (present > expected) {
-      alert('Present cannot exceed expected.');
-      return;
-    }
+    
+    // Default un-marked students to Present or keep as is?
+    // Let's assume unmarked are Present if not set.
+    const presentCount = children.filter(c => studentStatuses[c.id] !== 'Absent').length;
+    
     try {
       await eventService.update(attendanceModalEvent.id, {
         attendanceJson: {
-          totalPresent: present,
-          totalExpected: expected,
+          totalPresent: presentCount,
+          totalExpected: children.length,
           notes: attendanceForm.notes.trim() || undefined,
+          studentStatuses
         },
       });
       setAttendanceModalEvent(null);
-      setAttendanceForm({ totalPresent: '', totalExpected: '', notes: '' });
       fetchEvents();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to save attendance');
+      alert('Failed to save attendance');
     }
   };
 
-  const filteredEvents = events.filter((ev) => {
-    if (typeFilter === 'drills') return isDrill(ev.type);
-    if (typeFilter === 'health') return !isDrill(ev.type);
-    return true;
+  const toggleStudentStatus = (id: number) => {
+    setStudentStatuses(prev => ({
+      ...prev,
+      [id]: prev[id] === 'Absent' ? 'Present' : 'Absent'
+    }));
+  };
+
+  const uniqueClasses = Array.from(new Set(children.map((c: any) => c.class))).sort((a, b) => a - b);
+  const uniqueSections = Array.from(new Set(children.map((c: any) => c.section))).sort();
+
+  const filteredChildren = children.filter(c => {
+    const s = attSearch.toLowerCase();
+    const matchSearch = !s || c.name.toLowerCase().includes(s) || c.registrationNo.toLowerCase().includes(s);
+    const matchClass = !attFilterClass || String(c.class) === attFilterClass;
+    const matchSection = !attFilterSection || c.section === attFilterSection;
+    return matchSearch && matchClass && matchSection;
   });
+
+  const totalCollected = school?.donations?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0;
+  const creditGoal = school?.annualCreditGoal || 50000;
+  const isUnlocked = totalCollected >= creditGoal;
+  const progressPercent = Math.min(100, (totalCollected / creditGoal) * 100);
+
+  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--primary)' }}>Loading Programs...</div>;
 
   return (
     <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', background: 'linear-gradient(90deg, var(--primary) 0%, #ec4899 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Events
-          </h2>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Schedule checkups, screenings, drills, and expert sessions.</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f0fdf4', borderRadius: '10px', fontSize: '0.8rem', color: '#166534', border: '1px solid #bbf7d0' }}>
-            <Info size={16} />
-            <span><strong>Age bands:</strong> K-5, 6-8, 9-12. HPV for 9-12; CPR/First-aid for 6-12.</span>
+      {/* Credit Pool Header */}
+      <div className="glass-card" style={{ background: 'white', padding: '2rem', marginBottom: '2.5rem', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '4px' }}>Annual Program Credit Pool</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Universal funding pool from sponsors and institutional contributions.</p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>₹{totalCollected.toLocaleString()}</span>
+            <span style={{ color: 'var(--text-muted)' }}> / ₹{creditGoal.toLocaleString()}</span>
           </div>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Plus size={20} /> Add Event
-        </button>
-      </div>
+        
+        <div style={{ width: '100%', height: '14px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '1.5rem' }}>
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${progressPercent}%` }}
+            style={{ width: `${progressPercent}%`, height: '100%', background: isUnlocked ? '#10b981' : 'linear-gradient(90deg, var(--primary) 0%, #ec4899 100%)', borderRadius: '10px' }}
+          />
+        </div>
 
-      <div className="glass-card" style={{ marginBottom: '2rem', background: 'white', padding: '1rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <label style={{ fontWeight: 600 }}>Academic year</label>
-        <select
-          value={academicYear}
-          onChange={(e) => setAcademicYear(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.95rem' }}
-        >
-          <option value="2023-2024">2023-2024</option>
-          <option value="2024-2025">2024-2025</option>
-          <option value="2025-2026">2025-2026</option>
-        </select>
-        <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }}>|</span>
-        <label style={{ fontWeight: 600, marginLeft: '0.5rem' }}>Filter</label>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {(['all', 'drills', 'health'] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setTypeFilter(f)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: '1px solid',
-                borderColor: typeFilter === f ? 'var(--primary)' : 'var(--border)',
-                background: typeFilter === f ? 'var(--primary)' : 'white',
-                color: typeFilter === f ? 'white' : 'var(--text-main)',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              {f === 'all' ? 'All' : f === 'drills' ? 'Drills only' : 'Health only'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isUnlocked ? '#166534' : '#991b1b', fontSize: '0.9rem', fontWeight: 600 }}>
+             {isUnlocked ? <CheckCircle2 size={18} /> : <Info size={18} />}
+             {isUnlocked ? 'Program Access Unlocked' : `Bridge the ₹${(creditGoal - totalCollected).toLocaleString()} gap to unlock scheduling`}
+          </div>
+          {!isUnlocked && (
+            <button onClick={handlePayGap} disabled={paying} className="btn btn-primary" style={{ padding: '10px 24px', fontSize: '0.95rem' }}>
+              {paying ? 'Processing...' : 'Pay Gap & Unlock Calendar'}
             </button>
-          ))}
+          )}
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 600 }}>Loading events...</div>
-      ) : filteredEvents.length === 0 ? (
-        <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: 'white', color: 'var(--text-muted)', border: '2px dashed var(--border)' }}>
-          <CalendarPlus size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
-          <h3>No Events Yet</h3>
-          <p>Add a checkup, screening, or drill to get started.</p>
-        </div>
+      {isUnlocked ? (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <h3 style={{ fontSize: '1.75rem' }}>Central Program Calendar</h3>
+            <div style={{ display: 'flex', background: 'white', borderRadius: '10px', padding: '4px', border: '1px solid var(--border)' }}>
+              <button onClick={() => setViewMode('list')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: viewMode === 'list' ? 'var(--primary-light)' : 'transparent', color: viewMode === 'list' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                <LayoutList size={18} /> List
+              </button>
+              <button onClick={() => setViewMode('calendar')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: viewMode === 'calendar' ? 'var(--primary-light)' : 'transparent', color: viewMode === 'calendar' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                <CalendarIconUI size={18} /> Calendar
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'calendar' ? (
+            <CalendarView events={events} onEventClick={(ev) => openAttendanceModal(ev)} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                {PREDEFINED_PROGRAMS.map(prog => {
+                  const alreadyAssigned = events.some(e => e.type === prog.type);
+                  return (
+                    <div key={prog.type} className="glass-card" style={{ padding: '1.25rem', background: 'white', border: '1px solid #f1f5f9', opacity: alreadyAssigned ? 0.6 : 1 }}>
+                       <h4 style={{ fontSize: '1rem', marginBottom: '6px' }}>{prog.title}</h4>
+                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem', minHeight: '40px' }}>{prog.description}</p>
+                       <button 
+                        onClick={() => setShowScheduleModal(prog)}
+                        disabled={alreadyAssigned}
+                        className="btn btn-outline" 
+                        style={{ width: '100%', fontSize: '0.85rem' }}
+                       >
+                         {alreadyAssigned ? 'Already Assigned' : 'Assign to Calendar'}
+                       </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <h4 style={{ fontSize: '1.1rem', marginTop: '1rem', marginBottom: '1rem' }}>Scheduled Programs</h4>
+              {events.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No programs scheduled yet. Use the cards above to assign dates.</p>
+              ) : (
+                events.map((ev) => (
+                  <div key={ev.id} className="glass-card" style={{ padding: '1.25rem', background: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {ev.title}
+                        {ev.completedAt && <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '10px' }}>Completed</span>}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        <CalendarIconUI size={14} style={{ marginRight: '6px' }} />
+                        {new Date(ev.scheduledAt).toLocaleDateString(undefined, { dateStyle: 'long' })}
+                      </div>
+                      {ev.ambassador && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '4px', fontWeight: 500 }}>
+                          Ambassador: {ev.ambassador.name}
+                        </div>
+                      )}
+                      {ev.completedAt && ev.attendanceJson?.totalPresent !== undefined && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Users size={14} /> {ev.attendanceJson.totalPresent} Students Present
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {!ev.completedAt ? (
+                        <button onClick={() => handleMarkComplete(ev)} className="btn btn-sm" style={{ background: '#dcfce7', color: '#166534' }}>Complete</button>
+                      ) : (
+                        <button onClick={() => openAttendanceModal(ev)} className="btn btn-sm btn-outline">Log Attendance</button>
+                      )}
+                      <button onClick={() => eventService.delete(ev.id).then(fetchEvents)} className="btn btn-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>Remove</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {filteredEvents.map((ev, index) => (
-            <motion.div
-              key={ev.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="glass-card"
-              style={{ background: 'white', padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '1.5rem', alignItems: 'center' }}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ 
+            textAlign: 'center', 
+            padding: '5rem 2rem', 
+            background: 'white', 
+            borderRadius: '32px', 
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)'
+          }}
+        >
+          <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 2rem auto' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'var(--primary-light)', borderRadius: '50%', opacity: 0.2, animation: 'pulse 2s infinite' }}></div>
+            <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--primary-light)' }}>
+              <ShieldCheck size={48} color="var(--primary)" />
+            </div>
+            <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#ef4444', color: 'white', borderRadius: '50%', padding: '6px', border: '3px solid white' }}>
+              <Lock size={18} />
+            </div>
+          </div>
+
+          <h2 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--text-main)' }}>Annual Program Access Restricted</h2>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto 3rem auto', lineHeight: 1.8, fontSize: '1.1rem' }}>
+            To ensure high-quality delivery of our specialized programs, access to the annual calendar is unlocked once the institutional credit goal of <strong>₹{creditGoal.toLocaleString()}</strong> is reached.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1.5rem', maxWidth: '800px', margin: '0 auto 4rem auto' }}>
+             {[
+               { icon: <CheckCircle2 size={24} />, label: 'Health Checkups' },
+               { icon: <Info size={24} />, label: 'Mental Wellness' },
+               { icon: <LayoutList size={24} />, label: 'Nutrition Sessions' },
+               { icon: <ShieldCheck size={24} />, label: 'Safety Drills' }
+             ].map((item, i) => (
+               <div key={i} style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', opacity: 0.6 }}>
+                  <div style={{ color: 'var(--primary)' }}>{item.icon}</div>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{item.label}</span>
+               </div>
+             ))}
+          </div>
+
+          <div style={{ background: '#fff7ed', padding: '1.5rem', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '1rem', border: '1px solid #ffedd5', marginBottom: '2.5rem' }}>
+            <div style={{ padding: '10px', background: '#fb923c', color: 'white', borderRadius: '12px' }}>
+              <Info size={20} />
+            </div>
+            <div style={{ textAlign: 'left' }}>
+               <div style={{ fontWeight: 700, color: '#9a3412', fontSize: '0.95rem' }}>Funding Gap identified</div>
+               <div style={{ fontSize: '0.85rem', color: '#c2410c' }}>Current Pool: ₹{totalCollected.toLocaleString()} | Remaining: ₹{(creditGoal - totalCollected).toLocaleString()}</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem' }}>
+            <button 
+              onClick={handlePayGap} 
+              disabled={paying}
+              className="btn btn-primary" 
+              style={{ padding: '16px 40px', fontSize: '1.1rem', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(219, 39, 119, 0.3)' }}
             >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {ev.title}
-                  {ev.completedAt && (
-                    <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '999px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle2 size={12} /> Completed
-                    </span>
-                  )}
-                </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 10px', borderRadius: '20px' }}>
-                  {formatEventType(ev.type)}
-                </span>
-                {ev.ambassador && (
-                  <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <User size={14} /> {ev.ambassador.name}
-                  </div>
-                )}
-                {ev.attendanceJson && (ev.attendanceJson as any).totalPresent != null && (
-                  <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Users size={14} /> {(ev.attendanceJson as any).totalPresent} / {(ev.attendanceJson as any).totalExpected} attended
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                <Calendar size={16} />
-                {ev.scheduledAt ? new Date(ev.scheduledAt).toLocaleDateString() : '—'}
-              </div>
-              <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{ev.academicYear}</div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                {ev.completedAt && (
-                  <button
-                    onClick={() => openAttendanceModal(ev)}
-                    style={{ padding: '6px 10px', background: '#e0e7ff', color: '#4338ca', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                  >
-                    {ev.attendanceJson ? 'Edit attendance' : 'Log attendance'}
-                  </button>
-                )}
-                {ev.completedAt ? (
-                  <button
-                    onClick={() => handleMarkIncomplete(ev.id)}
-                    style={{ padding: '6px 10px', background: '#f1f5f9', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}
-                  >
-                    Mark incomplete
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleMarkComplete(ev.id)}
-                    style={{ padding: '6px 10px', background: '#dcfce7', color: '#166534', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                  >
-                    Mark completed
-                  </button>
-                )}
-                <button
-                  onClick={() => handleDelete(ev.id)}
-                  style={{ padding: '8px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              {paying ? 'Setting up gateway...' : `Bridge ₹${(creditGoal - totalCollected).toLocaleString()} Gap`}
+            </button>
+          </div>
+        </motion.div>
       )}
 
       <AnimatePresence>
-        {showAddModal && (
+        {showScheduleModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="glass-card"
-              style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '2rem' }}
-            >
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-card" style={{ background: 'white', width: '100%', maxWidth: '400px', padding: '2rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem' }}>Add Event</h3>
-                <button onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <h3 style={{ fontSize: '1.25rem' }}>Assign {showScheduleModal.title}</h3>
+                <button onClick={() => setShowScheduleModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                   <XCircle size={22} color="var(--text-muted)" />
                 </button>
               </div>
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <form onSubmit={(e: any) => { e.preventDefault(); handleAssignProgram(showScheduleModal, e.target.scheduledAt.value); }}>
                 <div className="form-group">
-                  <label>Type</label>
-                  <select
-                    required
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', width: '100%' }}
+                  <label>Select Date & Time</label>
+                  <input name="scheduledAt" type="datetime-local" required className="form-control" />
+                </div>
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label>Assign Ambassador (Optional)</label>
+                  <select 
+                    value={selectedAmbassadorId} 
+                    onChange={(e) => setSelectedAmbassadorId(e.target.value)}
+                    className="form-control"
                   >
-                    {EVENT_TYPES.map((t) => (
-                      <option key={t} value={t}>{formatEventType(t)}</option>
+                    <option value="">No Ambassador</option>
+                    {ambassadors.map(a => (
+                      <option key={a.id} value={a.id}>{a.name} ({a.type})</option>
                     ))}
                   </select>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Info size={14} />
-                    Applies to grades: {getBandLabelsForEventType(formData.type).join(', ')}
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Note: Assignment generates a confirmation invoice for the ambassador upon event completion.
                   </p>
                 </div>
-                <div className="form-group">
-                  <label>Title</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g. Annual Health Checkup 2025"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Academic year</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.academicYear}
-                    onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
-                    placeholder="e.g. 2024-2025"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Scheduled date (optional)</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.scheduledAt}
-                    onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', width: '100%' }}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Description (optional)</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Brief description"
-                    rows={2}
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', width: '100%', resize: 'vertical' }}
-                  />
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>Create Event</button>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1.5rem' }}>Assign to Calendar</button>
               </form>
             </motion.div>
           </div>
@@ -355,55 +452,121 @@ const Events: React.FC = () => {
 
         {attendanceModalEvent && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="glass-card"
-              style={{ background: 'white', width: '100%', maxWidth: '400px', padding: '2rem' }}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              className="glass-card" 
+              style={{ background: 'white', width: '100%', maxWidth: '600px', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem' }}>Log Attendance – {attendanceModalEvent.title}</h3>
-                <button onClick={() => setAttendanceModalEvent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                  <XCircle size={22} color="var(--text-muted)" />
+              <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', marginBottom: '4px' }}>Log Attendance</h3>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>{attendanceModalEvent.title}</p>
+                </div>
+                <button onClick={() => setAttendanceModalEvent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                  <XCircle size={24} color="var(--text-muted)" />
                 </button>
               </div>
-              <form onSubmit={handleAttendanceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div className="form-group">
-                  <label>Total present</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={attendanceForm.totalPresent}
-                    onChange={(e) => setAttendanceForm({ ...attendanceForm, totalPresent: e.target.value })}
-                    placeholder="e.g. 145"
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', width: '100%' }}
+
+              {/* Modal Filters */}
+              <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    placeholder="Search student..." 
+                    value={attSearch}
+                    onChange={(e) => setAttSearch(e.target.value)}
+                    style={{ width: '100%', height: '40px', paddingLeft: '2.5rem', paddingRight: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.9rem' }}
                   />
                 </div>
-                <div className="form-group">
-                  <label>Total expected</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={attendanceForm.totalExpected}
-                    onChange={(e) => setAttendanceForm({ ...attendanceForm, totalExpected: e.target.value })}
-                    placeholder="e.g. 160"
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', width: '100%' }}
-                  />
+                <select 
+                  value={attFilterClass}
+                  onChange={(e) => setAttFilterClass(e.target.value)}
+                  style={{ height: '40px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.9rem', minWidth: '90px' }}
+                >
+                  <option value="">All Cls</option>
+                  {uniqueClasses.map(c => <option key={c} value={String(c)}>Cls {c}</option>)}
+                </select>
+                <select 
+                  value={attFilterSection}
+                  onChange={(e) => setAttFilterSection(e.target.value)}
+                  style={{ height: '40px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.9rem', minWidth: '90px' }}
+                >
+                  <option value="">All Sec</option>
+                  {uniqueSections.map(s => <option key={s} value={s}>Sec {s}</option>)}
+                </select>
+              </div>
+
+              {/* Student List */}
+              <div style={{ padding: '1rem', overflowY: 'auto', flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {filteredChildren.map(child => {
+                    const isAbsent = studentStatuses[child.id] === 'Absent';
+                    return (
+                      <div 
+                        key={child.id}
+                        onClick={() => toggleStudentStatus(child.id)}
+                        style={{ 
+                          padding: '0.75rem 1rem', 
+                          borderRadius: '12px', 
+                          border: isAbsent ? '1px solid #fee2e2' : '1px solid #f1f5f9',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          background: isAbsent ? '#fffafb' : '#f8fafc',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', border: '1px solid #e2e8f0' }}>
+                            {child.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{child.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Class {child.class}-{child.section} • {child.registrationNo}</div>
+                          </div>
+                        </div>
+                        <div 
+                          style={{ 
+                            padding: '4px 12px', 
+                            borderRadius: '20px', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 700,
+                            background: isAbsent ? '#ef4444' : '#10b981',
+                            color: 'white',
+                            minWidth: '70px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {isAbsent ? 'Absent' : 'Present'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredChildren.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No students found matching filters</div>
+                  )}
                 </div>
-                <div className="form-group">
-                  <label>Notes (optional)</label>
-                  <textarea
-                    value={attendanceForm.notes}
-                    onChange={(e) => setAttendanceForm({ ...attendanceForm, notes: e.target.value })}
-                    placeholder="e.g. All classes participated"
+              </div>
+
+              <div style={{ padding: '1.5rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                   <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Event Notes</label>
+                   <textarea 
+                    value={attendanceForm.notes} 
+                    onChange={(e) => setAttendanceForm({ ...attendanceForm, notes: e.target.value })} 
+                    style={{ width: '100%', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '0.75rem', fontSize: '0.9rem', resize: 'none' }}
+                    placeholder="Any specific observations or session notes?"
                     rows={2}
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', width: '100%', resize: 'vertical' }}
-                  />
+                   />
                 </div>
-                <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>Save attendance</button>
-              </form>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button onClick={handleAttendanceSubmit} className="btn btn-primary" style={{ flex: 1, height: '45px' }}>Save Attendance & Sync Statuses</button>
+                  <button onClick={() => setAttendanceModalEvent(null)} className="btn btn-outline" style={{ background: 'white', border: '1px solid #e2e8f0', color: 'var(--text-main)', height: '45px' }}>Cancel</button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

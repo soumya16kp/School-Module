@@ -2,6 +2,9 @@ import express from "express";
 import { PartnerService } from "../services/partnerService";
 import { authenticateJWT, AuthRequest } from "../utils/authMiddleware";
 import Razorpay from "razorpay";
+import prisma from "../prismaClient";
+import path from "path";
+import fs from "fs";
 
 const router = express.Router();
 
@@ -71,6 +74,80 @@ router.get("/schools/:id/stats", authenticateJWT, async (req, res) => {
     if (isNaN(schoolId)) return res.status(400).json({ message: "Invalid school id" });
     const stats = await PartnerService.getSchoolHealthStats(schoolId);
     res.json(stats);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// GET /partner/invoices — list completed events for schools this partner donated to
+router.get("/invoices", authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+    // Step 1: Get ONLY school IDs this partner has donated to
+    const donations = await prisma.donation.findMany({
+      where: { partnerId: req.user.id },
+      select: { schoolId: true }
+    });
+
+    const donatedSchoolIds = [...new Set(donations.map((d: any) => d.schoolId))];
+
+    if (donatedSchoolIds.length === 0) {
+      return res.json([]); // Partner has not donated to any school yet
+    }
+
+    // Step 2: Get completed events ONLY from those schools
+    const completedEvents = await prisma.event.findMany({
+      where: { completedAt: { not: null }, schoolId: { in: donatedSchoolIds } },
+      include: { school: { select: { schoolName: true, city: true } }, ambassador: true },
+      orderBy: { completedAt: 'desc' }
+    });
+
+    // Match events to invoice files
+    const invoiceDir = path.join(process.cwd(), 'uploads', 'invoices');
+    let invoiceFiles: string[] = [];
+    if (fs.existsSync(invoiceDir)) {
+      invoiceFiles = fs.readdirSync(invoiceDir);
+    }
+
+    const invoices = completedEvents.map((ev: any) => {
+      const matchingFile = invoiceFiles.find(f => f.includes(`Event_${ev.id}_`));
+      return {
+        eventId: ev.id,
+        title: ev.title,
+        type: ev.type,
+        completedAt: ev.completedAt,
+        scheduledAt: ev.scheduledAt,
+        school: ev.school,
+        ambassador: ev.ambassador,
+        attendanceJson: ev.attendanceJson,
+        invoiceFile: matchingFile || null,
+        hasInvoice: !!matchingFile
+      };
+    });
+
+    res.json(invoices);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// GET /partner/invoices/:filename — download a specific invoice PDF
+router.get("/invoices/:filename", authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    const filename = Array.isArray(req.params.filename) ? req.params.filename[0] : req.params.filename;
+    // Sanitize to prevent path traversal
+    if (filename.includes('..') || filename.includes('/')) {
+      return res.status(400).json({ message: "Invalid filename" });
+    }
+    const filePath = path.join(process.cwd(), 'uploads', 'invoices', filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    fs.createReadStream(filePath).pipe(res);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

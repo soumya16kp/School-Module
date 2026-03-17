@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Globe, Heart, TrendingUp, Gift, School, LogOut, ArrowRight, User } from 'lucide-react';
+import { Globe, Heart, TrendingUp, Gift, School, LogOut, ArrowRight, User, FileText, Download, CheckCircle2 } from 'lucide-react';
 import { partnerService, authService } from '../services/api';
 import PartnerSchools from '../components/PartnerSchools';
 import DonationHistory from '../components/DonationHistory';
 
-type PartnerTab = 'home' | 'browse-schools' | 'my-donations';
+type PartnerTab = 'home' | 'browse-schools' | 'my-donations' | 'invoices';
 
 const PartnerDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<PartnerTab>('home');
   const [stats, setStats] = useState({ totalAmount: 0, count: 0 });
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const userStr = localStorage.getItem('school_user');
@@ -32,6 +35,27 @@ const PartnerDashboard: React.FC = () => {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'invoices' && invoices.length === 0) {
+      setInvoicesLoading(true);
+      partnerService.getInvoices()
+        .then((data: any[]) => setInvoices(data))
+        .catch(() => {})
+        .finally(() => setInvoicesLoading(false));
+    }
+  }, [activeTab]);
+
+  const handleDownloadInvoice = async (inv: any) => {
+    try {
+      setDownloadingId(inv.eventId);
+      await partnerService.downloadInvoice(inv.invoiceFile);
+    } catch (err) {
+      alert('Failed to download invoice. Please try again.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const handleLogout = () => {
     authService.logout();
@@ -89,6 +113,7 @@ const PartnerDashboard: React.FC = () => {
           {navItem('home', <TrendingUp size={20} />, 'Impact Overview')}
           {navItem('browse-schools', <Globe size={20} />, 'Discover Schools')}
           {navItem('my-donations', <Heart size={20} />, 'Transaction History')}
+          {navItem('invoices', <FileText size={20} />, 'Event Invoices')}
         </nav>
 
         <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
@@ -134,8 +159,91 @@ const PartnerDashboard: React.FC = () => {
           <PartnerSchools />
         ) : activeTab === 'my-donations' ? (
           <DonationHistory />
-        ) : (
+        ) : activeTab === 'invoices' ? (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            <div style={{ marginBottom: '2rem' }}>
+              <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.5rem' }}>Event Invoices</h1>
+              <p style={{ color: '#64748b' }}>Confirmation documents for all completed events across schools.</p>
+            </div>
+            {invoicesLoading ? (
+              <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--primary)' }}>Loading invoices...</div>
+            ) : invoices.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '4rem', background: 'white', borderRadius: '24px', border: '2px dashed #e2e8f0' }}>
+                <FileText size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto', display: 'block' }} />
+                <h3 style={{ color: '#64748b' }}>No invoices yet</h3>
+                <p style={{ color: '#94a3b8' }}>Invoices are generated automatically when events are marked as completed.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {invoices.map((inv: any) => (
+                  <motion.div
+                    key={inv.eventId}
+                    whileHover={{ y: -3, boxShadow: '0 12px 24px -10px rgba(0,0,0,0.08)' }}
+                    style={{ background: 'white', borderRadius: '20px', padding: '1.75rem', border: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '1fr auto', gap: '1.5rem', alignItems: 'center', transition: 'all 0.3s' }}
+                  >
+                    <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
+                      <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: inv.hasInvoice ? '#dcfce7' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {inv.hasInvoice ? <CheckCircle2 size={24} color="#16a34a" /> : <FileText size={24} color="#94a3b8" />}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#1e293b', marginBottom: '4px' }}>{inv.title}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
+                          {inv.school?.schoolName} • {inv.school?.city} &nbsp;|&nbsp;
+                          Completed: {inv.completedAt ? new Date(inv.completedAt).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'N/A'}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                          {inv.attendanceJson?.totalPresent !== undefined && (
+                            <span style={{ fontSize: '0.78rem', background: '#eff6ff', color: '#1d4ed8', padding: '3px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                              👥 {inv.attendanceJson.totalPresent} / {inv.attendanceJson.totalExpected} Present
+                            </span>
+                          )}
+                          {inv.ambassador && (
+                            <span style={{ fontSize: '0.78rem', background: '#fdf4ff', color: '#7e22ce', padding: '3px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                              🤝 {inv.ambassador.name}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '0.78rem', background: '#f1f5f9', color: '#475569', padding: '3px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                            {inv.type?.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      {inv.hasInvoice ? (
+                        <button
+                          onClick={() => handleDownloadInvoice(inv)}
+                          disabled={downloadingId === inv.eventId}
+                          style={{ 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            background: downloadingId === inv.eventId ? '#94a3b8' : 'var(--primary)', 
+                            color: 'white', 
+                            padding: '10px 20px', 
+                            borderRadius: '12px', 
+                            fontWeight: 700, 
+                            fontSize: '0.9rem', 
+                            border: 'none', 
+                            cursor: downloadingId === inv.eventId ? 'not-allowed' : 'pointer' 
+                          }}
+                        >
+                          {downloadingId === inv.eventId ? (
+                            <span className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%' }}></span>
+                          ) : (
+                            <Download size={16} />
+                          )}
+                          {downloadingId === inv.eventId ? 'Downloading...' : 'Download'}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>No invoice generated</span>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        ) : (          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <div style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.5rem', letterSpacing: '-0.025em' }}>Dashboard</h1>

@@ -112,4 +112,45 @@ router.post(
   }
 );
 
+// PUT /api/health/:childId/:recordId - update health record
+router.put(
+  "/:childId/:recordId",
+  authenticateJWT,
+  upload.single("reportFile"),
+  async (req: AuthRequest, res) => {
+    try {
+      if (!req.user || !canEditHealth(req.user.role)) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
+      const childId = parseInt(req.params.childId as string);
+      const recordId = parseInt(req.params.recordId as string);
+      
+      if (Number.isNaN(childId) || Number.isNaN(recordId)) {
+        res.status(400).json({ error: "Invalid child id or record id" });
+        return;
+      }
+
+      const auth = await assertSameSchoolForChild(req.user.id, childId);
+      if (!auth.ok) {
+        res.status(auth.code).json({ error: auth.message });
+        return;
+      }
+
+      const payload = {
+        ...req.body,
+      };
+      if (req.file) {
+        payload.reportFile = req.file.filename;
+      }
+
+      const record = await HealthService.updateRecord(recordId, payload);
+      res.status(200).json(record);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || "Bad request" });
+    }
+  }
+);
+
 export default router;

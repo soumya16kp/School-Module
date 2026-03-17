@@ -8,7 +8,7 @@ export class DashboardService {
     const [children, healthRecords, events, certifications] = await Promise.all([
       prisma.child.findMany({ 
         where: { schoolId }, 
-        select: { id: true } 
+        select: { id: true, status: true } 
       }),
       prisma.healthRecord.findMany({
         where: { 
@@ -27,15 +27,16 @@ export class DashboardService {
 
     const totalStudents = children.length;
     const studentIds = new Set(children.map((c: any) => c.id));
-
-    // Filter health records that belong to the current student cohort
     const validRecords = healthRecords.filter((r: any) => studentIds.has(r.childId));
+    
+    const studentsDone = children.filter((c: any) => c.status === "Done").length;
+    const studentsPending = children.filter((c: any) => c.status === "Pending").length;
+    const studentsAbsent = children.filter((c: any) => c.status === "Absent").length;
 
-    const studentsWithCheckup = new Set(
-      validRecords.filter((r: any) => r.checkupDate != null).map((r: any) => r.childId)
-    ).size;
+    const coveragePercent = totalStudents > 0 ? Math.round((studentsDone / totalStudents) * 100) : 0;
+    const pendingPercent = totalStudents > 0 ? Math.round((studentsPending / totalStudents) * 100) : 0;
+    const absentPercent = totalStudents > 0 ? Math.round((studentsAbsent / totalStudents) * 100) : 0;
 
-    const coveragePercent = totalStudents > 0 ? Math.round((studentsWithCheckup / totalStudents) * 100) : 0;
 
     // Drill completion: completed drills of required types
     const completedDrills = events.filter(
@@ -47,40 +48,72 @@ export class DashboardService {
     const drillPercent = Math.round((drillCompleted / drillRequired) * 100);
 
     // Prevalence (for high-risk): need screened count and flagged count per domain
+    // Prevalence (for high-risk): need screened count and flagged count per domain
     const screenedRecords = validRecords.filter((r: any) => r.checkupDate != null);
     const screened = screenedRecords.length;
-    
+
+    // Precise screening counts (records where specific exam data exists)
+    const dentalScreened = screenedRecords.filter((r: any) => r.dentalOverallHealth || r.dentalReferralNeeded !== null).length;
+    const visionScreened = screenedRecords.filter((r: any) => r.visionOverall || r.visionReferralNeeded !== null).length;
+    const bmiScreened = screenedRecords.filter((r: any) => r.bmiCategory).length;
+
+    // Flagged (Issues detected)
     const dentalFlagged = screenedRecords.filter(
       (r: any) =>
-        r.dentalOverallHealth &&
-        ["MODERATE_ISSUES", "SEVERE_ISSUES"].includes(r.dentalOverallHealth)
+        (r.dentalOverallHealth && ["MODERATE_ISSUES", "SEVERE_ISSUES", "FAIR", "POOR", "ISSUES"].includes(r.dentalOverallHealth.toUpperCase())) ||
+        r.dentalReferralNeeded === true
     ).length;
     
     const visionFlagged = screenedRecords.filter(
       (r: any) =>
-        r.visionOverall &&
-        ["REQUIRES_FURTHER_EVAL", "UNDER_TREATMENT"].includes(r.visionOverall)
+        (r.visionOverall && ["REQUIRES_FURTHER_EVAL", "UNDER_TREATMENT", "MYOPIA", "LOW_VISION", "ISSUES"].includes(r.visionOverall.toUpperCase())) ||
+        r.visionReferralNeeded === true
     ).length;
     
     const bmiHigh = screenedRecords.filter(
-      (r: any) => r.bmiCategory && ["OVERWEIGHT", "OBESE"].includes(r.bmiCategory)
+      (r: any) => r.bmiCategory && ["OVERWEIGHT", "OBESE", "AT RISK"].includes(r.bmiCategory.toUpperCase())
     ).length;
 
-    const dentalPrevalence =
-      screened >= MIN_SCREENED ? Math.round((dentalFlagged / screened) * 100) : null;
-    const visionPrevalence =
-      screened >= MIN_SCREENED ? Math.round((visionFlagged / screened) * 100) : null;
-    const bmiPrevalence =
-      screened >= MIN_SCREENED ? Math.round((bmiHigh / screened) * 100) : null;
+    // Healthy (Explicitly marked and NO referral)
+    const bmiNormal = screenedRecords.filter(
+      (r: any) => r.bmiCategory && r.bmiCategory.toUpperCase() === "NORMAL"
+    ).length;
+
+    const dentalHealthy = screenedRecords.filter(
+      (r: any) => {
+        const h = r.dentalOverallHealth?.toUpperCase();
+        const okStatus = h === "HEALTHY" || h === "GOOD" || h === "EXCELLENT";
+        return okStatus && r.dentalReferralNeeded === false;
+      }
+    ).length;
+
+    const visionNormal = screenedRecords.filter(
+      (r: any) => {
+        const v = r.visionOverall?.toUpperCase();
+        const okStatus = v === "NORMAL" || v === "GOOD";
+        return okStatus && r.visionReferralNeeded === false;
+      }
+    ).length;
+
+    // Prevalence calculations (Percent of those actually screened)
+    const dentalHealthyPercent = dentalScreened > 0 ? Math.round((dentalHealthy / dentalScreened) * 100) : 0;
+    const visionNormalPercent = visionScreened > 0 ? Math.round((visionNormal / visionScreened) * 100) : 0;
+    const bmiNormalPercent = bmiScreened > 0 ? Math.round((bmiNormal / bmiScreened) * 100) : 0;
+
+    // Flagged prevalence for High-Risk markers (OQ-05)
+    // We still use total screened as baseline for global institutional risk
+    const dentalPrevalenceRaw = screened >= MIN_SCREENED ? Math.round((dentalFlagged / screened) * 100) : null;
+    const visionPrevalenceRaw = screened >= MIN_SCREENED ? Math.round((visionFlagged / screened) * 100) : null;
+    const bmiPrevalenceRaw = screened >= MIN_SCREENED ? Math.round((bmiHigh / screened) * 100) : null;
 
     // High-risk flags (OQ-05)
     const highRiskFlags: string[] = [];
     if (coveragePercent < 70) highRiskFlags.push("Low annual checkup coverage");
-    if (dentalPrevalence != null && dentalPrevalence >= 30)
+    if (dentalPrevalenceRaw != null && dentalPrevalenceRaw >= 30)
       highRiskFlags.push("High dental issue prevalence");
-    if (visionPrevalence != null && visionPrevalence >= 25)
+    if (visionPrevalenceRaw != null && visionPrevalenceRaw >= 25)
       highRiskFlags.push("High vision issue prevalence");
-    if (bmiPrevalence != null && bmiPrevalence >= 20)
+    if (bmiPrevalenceRaw != null && bmiPrevalenceRaw >= 20)
       highRiskFlags.push("High overweight/obesity prevalence");
     if (drillPercent < 50) highRiskFlags.push("Low safety drill completion");
 
@@ -106,8 +139,12 @@ export class DashboardService {
       schoolId,
       academicYear,
       totalStudents,
-      studentsWithCheckup,
+      studentsWithCheckup: studentsDone,
+      studentsPending,
+      studentsAbsent,
       coveragePercent,
+      pendingPercent,
+      absentPercent,
       drillCompleted,
       drillRequired,
       drillPercent,
@@ -118,10 +155,19 @@ export class DashboardService {
       isHighRisk,
       upcomingEvents,
       prevalence: {
-        dental: dentalPrevalence,
-        vision: visionPrevalence,
-        bmiHigh: bmiPrevalence,
+        dental: dentalPrevalenceRaw,
+        vision: visionPrevalenceRaw,
+        bmiHigh: bmiPrevalenceRaw,
         screened,
+        dentalHealthy,
+        visionNormal,
+        bmiNormal,
+        dentalScreened,
+        visionScreened,
+        bmiScreened,
+        dentalHealthyPercent,
+        visionNormalPercent,
+        bmiNormalPercent,
       },
     };
   }

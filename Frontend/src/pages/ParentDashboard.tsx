@@ -19,7 +19,6 @@ const ParentDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('health');
-  const [selectedProgramYear, setSelectedProgramYear] = useState<string>('');
   const [accessRequests, setAccessRequests] = useState<any[]>([]);
   const [idCardLoading, setIdCardLoading] = useState(false);
   const navigate = useNavigate();
@@ -123,25 +122,11 @@ const ParentDashboard: React.FC = () => {
     }
   };
 
-  const getParticipatedPrograms = (record: any) => {
-    const programs: string[] = [];
-    if (record?.immunization) programs.push('Immunization');
-    if (record?.mentalWellness) programs.push('Mental Wellness');
-    if (record?.nutrition) programs.push('Nutrition');
-    if (record?.menstrualHygiene) programs.push('Menstrual Hygiene');
-    return programs;
-  };
+
 
   const healthRecords: any[] = data?.healthRecords || [];
   const currentRecord = healthRecords[0] || {};
   const notifications: any[] = data?.notifications || [];
-
-  const allYears: string[] = Array.from(
-    new Set(healthRecords.map((r: any) => r.academicYear as string))
-  ).sort().reverse();
-
-  const programYearKey = selectedProgramYear || allYears[0] || '';
-  const programRecord = healthRecords.find((r: any) => r.academicYear === programYearKey) || currentRecord;
 
   const bmiTrend = healthRecords.slice().reverse().map((r: any) => ({
     name: r.academicYear,
@@ -150,7 +135,7 @@ const ParentDashboard: React.FC = () => {
     height: r.height
   }));
 
-  const emergencyUrl = `${window.location.origin}/emergency-access/${id}`;
+
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a', paddingBottom: '2rem' }}>
@@ -332,35 +317,68 @@ const ParentDashboard: React.FC = () => {
                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '1.5rem' }}>
                   <div className="glass-card" style={{ padding: '1.5rem', background: 'white', borderRadius: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Program Participation</h3>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Calendar size={16} color="#64748b" />
-                        <select
-                          value={programYearKey}
-                          onChange={(e) => setSelectedProgramYear(e.target.value)}
-                          style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.9rem', fontWeight: '600', color: '#1e3a8a', background: '#eff6ff', cursor: 'pointer' }}
-                        >
-                          {allYears.length > 0 ? allYears.map((yr: string) => (
-                            <option key={yr} value={yr}>{yr}</option>
-                          )) : <option value="">No data</option>}
-                        </select>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Program Participation History</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                         <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Latest 10 activities</span>
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                      {['Immunization', 'Nutrition', 'Mental Wellness', 'Menstrual Hygiene'].map(prog => {
-                        const participated = getParticipatedPrograms(programRecord).includes(prog);
-                        return (
-                          <div key={prog} style={{ padding: '1rem', borderRadius: '16px', border: '1px solid', borderColor: participated ? '#dcfce7' : '#f1f5f9', background: participated ? '#f0fdf4' : 'white', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <CheckCircle2 size={24} color={participated ? '#22c55e' : '#cbd5e1'} />
-                              {participated && <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#15803d', background: '#bbf7d0', padding: '2px 8px', borderRadius: '20px' }}>COMPLETED</span>}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {data?.attendanceHistory && data.attendanceHistory.length > 0 ? (
+                        data.attendanceHistory.map((ev: any, idx: number) => (
+                          <div 
+                            key={idx} 
+                            style={{ 
+                              display: 'flex', 
+                              justifyContent: 'space-between', 
+                              alignItems: 'center', 
+                              padding: '1.25rem', 
+                              borderRadius: '16px', 
+                              border: '1px solid #f1f5f9',
+                              background: ev.status === 'Present' ? '#f0fdf4' : ev.status === 'Absent' ? '#fff1f2' : '#f8fafc',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <div style={{ 
+                                width: '40px', 
+                                height: '40px', 
+                                borderRadius: '10px', 
+                                background: 'white', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                color: ev.status === 'Present' ? '#16a34a' : ev.status === 'Absent' ? '#dc2626' : '#64748b',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                              }}>
+                                {ev.type === 'IMMUNIZATION' ? <Activity size={20} /> : <Calendar size={20} />}
+                              </div>
+                              <div>
+                                <p style={{ fontWeight: '700', color: '#1e293b', margin: 0 }}>{ev.title}</p>
+                                <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>
+                                  {new Date(ev.scheduledAt).toLocaleDateString(undefined, { dateStyle: 'long' })}
+                                </p>
+                              </div>
                             </div>
-                            <p style={{ fontWeight: '700', color: participated ? '#14532d' : '#475569' }}>{prog}</p>
-                            <p style={{ fontSize: '0.75rem', color: participated ? '#166534' : '#64748b' }}>WombTo18 certified program</p>
+                            <div style={{ 
+                              padding: '6px 14px', 
+                              borderRadius: '20px', 
+                              fontSize: '0.75rem', 
+                              fontWeight: '700',
+                              background: ev.status === 'Present' ? '#22c55e' : ev.status === 'Absent' ? '#ef4444' : '#64748b',
+                              color: 'white',
+                              minWidth: '85px',
+                              textAlign: 'center'
+                            }}>
+                              {ev.status.toUpperCase()}
+                            </div>
                           </div>
-                        );
-                      })}
+                        ))
+                      ) : (
+                        <div style={{ padding: '3rem', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', color: '#94a3b8', border: '2px dashed #e2e8f0' }}>
+                          No participation history found.
+                        </div>
+                      )}
                     </div>
                   </div>
 

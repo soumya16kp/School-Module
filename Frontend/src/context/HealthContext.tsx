@@ -7,6 +7,7 @@ interface HealthContextType {
   loading: boolean;
   fetchChildData: (childId: number) => Promise<void>;
   addHealthRecord: (childId: number, data: any) => Promise<void>;
+  updateHealthRecord: (childId: number, recordId: number, data: any) => Promise<void>;
 }
 
 const HealthContext = createContext<HealthContextType | undefined>(undefined);
@@ -40,8 +41,18 @@ export const HealthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateHealthRecord = async (childId: number, recordId: number, data: any) => {
+    try {
+      await healthService.updateRecord(childId, recordId, data);
+      await fetchChildData(childId); // Refresh records
+    } catch (error) {
+      console.error('Error updating health record:', error);
+      throw error;
+    }
+  };
+
   return (
-    <HealthContext.Provider value={{ child, healthRecords, loading, fetchChildData, addHealthRecord }}>
+    <HealthContext.Provider value={{ child, healthRecords, loading, fetchChildData, addHealthRecord, updateHealthRecord }}>
       {children}
     </HealthContext.Provider>
   );

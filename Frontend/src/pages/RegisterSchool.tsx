@@ -4,6 +4,18 @@ import { schoolService } from '../services/api';
 import { School, User, MapPin, FileText, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const REGISTRATION_FEE = 5000;
+
+const loadScript = (src: string) => {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 const RegisterSchool: React.FC = () => {
   const [formData, setFormData] = useState({
     schoolName: '',
@@ -17,12 +29,12 @@ const RegisterSchool: React.FC = () => {
     address: '',
     state: '',
     city: '',
+    stateCode: 'WB',
     pincode: '',
     pocName: '',
     pocDesignation: '',
     pocMobile: '',
-    pocEmail: '',
-    stateCode: 'WB'
+    pocEmail: ''
   });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -34,13 +46,72 @@ const RegisterSchool: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // 1. Load Razorpay Script
+    const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
+    if (!res) {
+      alert("Razorpay SDK failed to load. Are you online?");
+      setLoading(false);
+      return;
+    }
+
     try {
-      await schoolService.register(formData);
-      alert('Registration Successful!');
-      navigate('/dashboard');
-    } catch (err) {
-      alert('Registration Failed. Check all fields.');
-    } finally {
+      // 2. Create order on backend
+      const order = await schoolService.createOrder(REGISTRATION_FEE);
+      
+      if (!order || !order.id) {
+        alert("Failed to create Razorpay Order. Please check your connection.");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Initialize Razorpay Checkout
+      const options = {
+        key: order.razorpay_key_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: "WombTo18",
+        description: "School Registration Fee",
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+            // 4. Complete registration on backend
+            await schoolService.register({
+              ...formData,
+              paymentId: response.razorpay_payment_id,
+              orderId: response.razorpay_order_id,
+              signature: response.razorpay_signature
+            });
+            alert('Registration Successful!');
+            navigate('/dashboard');
+          } catch (err: any) {
+            console.error("Registration update failed", err);
+            alert("Payment captured but failed to complete registration. Please contact support.");
+          } finally {
+            setLoading(false);
+          }
+        },
+        prefill: {
+          name: formData.principalName,
+          email: formData.schoolEmail,
+          contact: formData.principalContact,
+        },
+        theme: {
+          color: "#db2777",
+        },
+        modal: {
+          ondismiss: function() {
+            setLoading(false);
+          }
+        }
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.open();
+
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to initiate payment. Please check your connection.');
       setLoading(false);
     }
   };
@@ -112,6 +183,16 @@ const RegisterSchool: React.FC = () => {
           </div>
           <div className="grid-2">
             <div className="form-group">
+              <label>State</label>
+              <input name="state" onChange={handleChange} required />
+            </div>
+            <div className="form-group">
+              <label>City</label>
+              <input name="city" onChange={handleChange} required />
+            </div>
+          </div>
+          <div className="grid-2">
+            <div className="form-group">
               <label>State Code (e.g., WB, DL)</label>
               <input name="stateCode" maxLength={2} placeholder="WB" onChange={handleChange} required />
             </div>
@@ -144,7 +225,7 @@ const RegisterSchool: React.FC = () => {
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ marginTop: '2rem', width: '100%', height: '56px', fontSize: '1.1rem' }} disabled={loading}>
-            {loading ? 'Submitting Details...' : 'Complete Registration'} <CheckCircle size={20} />
+            {loading ? 'Processing Payment...' : `Pay ₹${REGISTRATION_FEE} & Complete Registration`} <CheckCircle size={20} />
           </button>
         </form>
       </motion.div>

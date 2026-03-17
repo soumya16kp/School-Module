@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { schoolService, authService, dashboardService, partnerService } from '../services/api';
-import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, Calendar, ClipboardList, CalendarPlus, Users, Award, Heart, Globe } from 'lucide-react';
+import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, Calendar, ClipboardList, CalendarPlus, Users, Award, Heart, Globe, Activity, Eye, Smile, Pencil, UserCircle } from 'lucide-react';
 
 // PRD §4.1: Tab visibility by role
 const formatRole = (role: string) =>
@@ -35,6 +35,35 @@ const DetailRow = ({ label, value }: { label: string; value?: string | number | 
     <p style={{ fontWeight: 500 }}>{value ?? '—'}</p>
   </div>
 );
+
+const LeadershipSection = ({ title, form, setForm, prefix }: any) => (
+  <div style={{ padding: '1.25rem', border: '1px solid #e2e8f0', borderRadius: '16px', background: '#f8fafc' }}>
+    <p style={{ fontWeight: 800, fontSize: '0.7rem', color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>{title}</p>
+    <div style={{ display: 'grid', gap: '1rem' }}>
+      <input 
+        placeholder="Full Name" 
+        value={form[`${prefix}Name`] || ''} 
+        onChange={e => setForm({...form, [`${prefix}Name`]: e.target.value})}
+        className="form-control"
+        style={{ padding: '0.75rem', fontSize: '0.9rem' }}
+      />
+      <input 
+        placeholder="Contact Info (Email/Phone)" 
+        value={form[`${prefix}Contact`] || ''} 
+        onChange={e => setForm({...form, [`${prefix}Contact`]: e.target.value})}
+        className="form-control"
+        style={{ padding: '0.75rem', fontSize: '0.9rem' }}
+      />
+      <input 
+        placeholder="Avatar Image URL" 
+        value={form[`${prefix}Image`] || ''} 
+        onChange={e => setForm({...form, [`${prefix}Image`]: e.target.value})}
+        className="form-control"
+        style={{ padding: '0.75rem', fontSize: '0.9rem' }}
+      />
+    </div>
+  </div>
+);
 import { motion } from 'framer-motion';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import ChildRecords from './ChildRecords';
@@ -42,6 +71,7 @@ import Events from './Events';
 import Ambassadors from './Ambassadors';
 import Certifications from './Certifications';
 import PartnerDashboard from './PartnerDashboard';
+import { CircularProgress } from '../components/CircularProgress';
 
 type TabId = 'dashboard' | 'school-details' | 'events' | 'ambassadors' | 'certifications' | 'records' | 'available-schools' | 'my-donations';
 
@@ -57,6 +87,8 @@ const Dashboard: React.FC = () => {
   const [districtOverview, setDistrictOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [partnerStats, setPartnerStats] = useState({ totalAmount: 0, count: 0 });
+  const [showEditLeadership, setShowEditLeadership] = useState(false);
+  const [leadershipForm, setLeadershipForm] = useState<any>({});
 
   const visibleTabs = useMemo(() => {
     const tabs: TabId[] = ['dashboard', 'school-details', 'events', 'ambassadors', 'certifications', 'records', 'available-schools', 'my-donations'];
@@ -116,9 +148,38 @@ const Dashboard: React.FC = () => {
     }
   }, [role, activeTab]);
 
+  useEffect(() => {
+    if (school) {
+      setLeadershipForm({
+        principalName: school.principalName || '',
+        principalContact: school.principalContact || '',
+        principalImage: school.principalImage || '',
+        vicePrincipalName: school.vicePrincipalName || '',
+        vicePrincipalContact: school.vicePrincipalContact || '',
+        vicePrincipalImage: school.vicePrincipalImage || '',
+        nurseCounsellorName: school.nurseCounsellorName || '',
+        nurseCounsellorContact: school.nurseCounsellorContact || '',
+        nurseCounsellorImage: school.nurseCounsellorImage || '',
+      });
+    }
+  }, [school]);
+
   const handleLogout = () => {
     authService.logout();
     window.location.href = '/';
+  };
+
+  const handleUpdateLeadership = async () => {
+    try {
+      if (!school) return;
+      await schoolService.update(school.id, leadershipForm);
+      const updated = await schoolService.getMySchool();
+      setSchool(updated);
+      setShowEditLeadership(false);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update leadership details');
+    }
   };
 
   if (loading) return (
@@ -328,43 +389,133 @@ const Dashboard: React.FC = () => {
               You don&apos;t have access to this section.
             </div>
           ) : activeTab === 'school-details' ? (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card"
-              style={{ padding: '2.5rem', background: 'white', maxWidth: '800px' }}
-            >
-              <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'var(--primary)' }}>School Profile</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Read-only view of registration details</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem 3rem' }}>
-                <DetailRow label="School name" value={school.schoolName} />
-                <DetailRow label="UDISE+ Code" value={school.udiseCode} />
-                <DetailRow label="Registration number" value={school.registrationNo} />
-                <DetailRow label="School type" value={school.schoolType} />
-                <DetailRow label="Board affiliation" value={school.boardAffiliation} />
-                <DetailRow label="Academic year" value={school.academicYear} />
-                <DetailRow label="Channel" value={school.channel} />
-                <DetailRow label="Principal name" value={school.principalName} />
-                <DetailRow label="Principal contact" value={school.principalContact} />
-                <DetailRow label="School email" value={school.schoolEmail} />
-                <DetailRow label="Total student strength" value={school.studentStrength?.toLocaleString()} />
-              </div>
-              <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Full address</p>
-                <p style={{ lineHeight: 1.6 }}>{school.address}, {school.city}, {school.state} – {school.pincode}</p>
-              </div>
-              {(school.pocName || school.pocMobile || school.pocEmail) && (
-                <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Point of contact (if different)</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                    <DetailRow label="Name" value={school.pocName} />
-                    <DetailRow label="Designation" value={school.pocDesignation} />
-                    <DetailRow label="Mobile" value={school.pocMobile} />
-                    <DetailRow label="Email" value={school.pocEmail} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+              {/* Leadership Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card"
+                style={{ padding: '2.5rem', background: 'white' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>Institutional Leadership</h2>
+                    <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}>Assigned medical and administrative heads</p>
+                  </div>
+                  {['SCHOOL_ADMIN', 'PRINCIPAL'].includes(role) && (
+                    <button 
+                      onClick={() => setShowEditLeadership(true)}
+                      className="btn btn-primary" 
+                      style={{ padding: '0.75rem 1.5rem', fontSize: '0.9rem', gap: '10px', borderRadius: '14px' }}
+                    >
+                      <Pencil size={18} /> Update Details
+                    </button>
+                  )}
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                  {/* Principal */}
+                  <div style={{ padding: '2rem', borderRadius: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', gap: '1.5rem', alignItems: 'center', transition: 'transform 0.2s', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }}>
+                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '4px solid white', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}>
+                      {school.principalImage ? (
+                        <img src={school.principalImage} alt="Principal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <UserCircle size={50} color="#3b82f6" />
+                      )}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.025em' }}>Principal</p>
+                      <h4 style={{ fontWeight: 800, fontSize: '1.25rem', color: '#1e293b', marginBottom: '4px' }}>{school.principalName}</h4>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>{school.principalContact}</p>
+                    </div>
+                  </div>
+
+                  {/* Vice Principal */}
+                  <div style={{ padding: '2rem', borderRadius: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', gap: '1.5rem', alignItems: 'center', transition: 'transform 0.2s', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }}>
+                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '4px solid white', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}>
+                      {school.vicePrincipalImage ? (
+                        <img src={school.vicePrincipalImage} alt="Vice Principal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <UserCircle size={50} color="#8b5cf6" />
+                      )}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#8b5cf6', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.025em' }}>Vice Principal</p>
+                      <h4 style={{ fontWeight: 800, fontSize: '1.25rem', color: '#1e293b', marginBottom: '4px' }}>{school.vicePrincipalName || 'Not Assigned'}</h4>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>{school.vicePrincipalContact || '—'}</p>
+                    </div>
+                  </div>
+
+                  {/* Nurse / Counsellor */}
+                  <div style={{ padding: '2rem', borderRadius: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', gap: '1.5rem', alignItems: 'center', transition: 'transform 0.2s', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }}>
+                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '4px solid white', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}>
+                      {school.nurseCounsellorImage ? (
+                        <img src={school.nurseCounsellorImage} alt="Nurse" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <UserCircle size={50} color="#10b981" />
+                      )}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.025em' }}>Nurse / Counsellor</p>
+                      <h4 style={{ fontWeight: 800, fontSize: '1.25rem', color: '#1e293b', marginBottom: '4px' }}>{school.nurseCounsellorName || 'Not Assigned'}</h4>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>{school.nurseCounsellorContact || '—'}</p>
+                    </div>
                   </div>
                 </div>
-              )}
-            </motion.div>
+              </motion.div>
+
+              {/* School Profile Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="glass-card"
+                style={{ padding: '2.5rem', background: 'white' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1e293b', marginBottom: '4px' }}>School Profile</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Official institutional registration data</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '700' }}>
+                      {school.registrationNo}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
+                  <DetailRow label="School Name" value={school.schoolName} />
+                  <DetailRow label="UDISE+ Code" value={school.udiseCode} />
+                  <DetailRow label="Board" value={school.boardAffiliation} />
+                  <DetailRow label="Type" value={school.schoolType} />
+                  <DetailRow label="Academic Year" value={school.academicYear} />
+                  <DetailRow label="Total Strength" value={school.studentStrength?.toLocaleString()} />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', padding: '2rem', background: '#f8fafc', borderRadius: '20px' }}>
+                  <div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Contact Information</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Mail size={16} color="var(--primary)" />
+                        <span style={{ fontSize: '0.9rem' }}>{school.schoolEmail}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Phone size={16} color="var(--primary)" />
+                        <span style={{ fontSize: '0.9rem' }}>{school.principalContact}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Institution Address</p>
+                    <p style={{ fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
+                      {school.address}, {school.city}, {school.state} - {school.pincode}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           ) : activeTab === 'events' ? (
             <Events />
           ) : activeTab === 'ambassadors' ? (
@@ -432,22 +583,46 @@ const Dashboard: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}
+                  style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}
                 >
-                  <div className="glass-card" style={{ padding: '1.25rem', background: 'white' }}>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Checkup Coverage</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: overview.coveragePercent >= 70 ? '#166534' : overview.coveragePercent >= 50 ? '#92400e' : '#991b1b' }}>{overview.coveragePercent}%</p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{overview.studentsWithCheckup} / {overview.totalStudents} students</p>
+                  <div className="glass-card" style={{ padding: '2rem 1.5rem 1.5rem 1.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1.5rem' }}>Checkup Coverage</p>
+                    <CircularProgress 
+                      percentage={overview.coveragePercent} 
+                      pendingPercentage={overview.pendingPercent}
+                      size={180} 
+                      color="#10b981" 
+                    />
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'center', width: '100%', fontSize: '0.8rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                        <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{overview.studentsWithCheckup} Done</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} />
+                        <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{overview.studentsPending} Pending</span>
+                      </div>
+                      {overview.studentsAbsent > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f1f5f9' }} />
+                          <span style={{ color: 'var(--text-muted)' }}>{overview.studentsAbsent} Absent</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="glass-card" style={{ padding: '1.25rem', background: 'white' }}>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Drill Completion</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: overview.drillPercent >= 50 ? '#166534' : '#991b1b' }}>{overview.drillPercent}%</p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{overview.drillCompleted} / {overview.drillRequired} drills</p>
+                  <div className="glass-card" style={{ padding: '2rem 1.5rem 1.5rem 1.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1.5rem' }}>Drill Completion</p>
+                    <CircularProgress 
+                      percentage={overview.drillPercent} 
+                      size={180} 
+                      color="#3b82f6" 
+                    />
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem', fontWeight: 600 }}>{overview.drillCompleted} / {overview.drillRequired} drills</p>
                   </div>
-                  <div className="glass-card" style={{ padding: '1.25rem', background: 'white' }}>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Certifications</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{overview.certificationCount}</p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{overview.certificationActive} active, {overview.certificationPending} pending</p>
+                  <div className="glass-card" style={{ padding: '1.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', justifyContent: 'center' }}>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem' }}>Certifications</p>
+                    <p style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>{overview.certificationCount}</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{overview.certificationActive} active, {overview.certificationPending} pending</p>
                   </div>
                   {overview.isHighRisk && (
                     <div className="glass-card" style={{ padding: '1.25rem', background: '#fef2f2', border: '1px solid #fecaca' }}>
@@ -455,6 +630,98 @@ const Dashboard: React.FC = () => {
                       <p style={{ fontSize: '0.85rem', color: '#991b1b' }}>{overview.highRiskFlags.slice(0, 2).join('; ')}</p>
                     </div>
                   )}
+                </motion.div>
+              )}
+
+              {overview && overview.prevalence && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ marginBottom: '2rem' }}
+                >
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', color: '#0f172a' }}>Health Prevalence Overview</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                    {/* Dental Card */}
+                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', marginBottom: '1.25rem' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Smile size={24} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 600 }}>Dental Health</p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>{overview.prevalence.dentalHealthyPercent}%</span>
+                            <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>Healthy</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${overview.prevalence.dentalHealthyPercent}%` }}
+                          transition={{ duration: 1, ease: "easeOut" }}
+                          style={{ height: '100%', background: '#16a34a', borderRadius: '10px' }} 
+                        />
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <span style={{ fontWeight: 700, color: '#0f172a' }}>{overview.prevalence.dentalHealthy}</span> out of {overview.prevalence.screened} students screened have no major issues.
+                      </p>
+                    </div>
+
+                    {/* Vision Card */}
+                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', marginBottom: '1.25rem' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Eye size={24} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 600 }}>Eye Vision</p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>{overview.prevalence.visionNormalPercent}%</span>
+                            <span style={{ fontSize: '0.85rem', color: '#2563eb', fontWeight: 600 }}>Normal</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${overview.prevalence.visionNormalPercent}%` }}
+                          transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+                          style={{ height: '100%', background: '#2563eb', borderRadius: '10px' }} 
+                        />
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <span style={{ fontWeight: 700, color: '#0f172a' }}>{overview.prevalence.visionNormal}</span> out of {overview.prevalence.screened} students screened have 6/6 or normal vision.
+                      </p>
+                    </div>
+
+                    {/* BMI Card */}
+                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', marginBottom: '1.25rem' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#fdf2f8', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Activity size={24} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 600 }}>Body Mass Index</p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>{overview.prevalence.bmiNormalPercent}%</span>
+                            <span style={{ fontSize: '0.85rem', color: '#db2777', fontWeight: 600 }}>Correct BMI</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${overview.prevalence.bmiNormalPercent}%` }}
+                          transition={{ duration: 1, ease: "easeOut", delay: 0.4 }}
+                          style={{ height: '100%', background: '#db2777', borderRadius: '10px' }} 
+                        />
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <span style={{ fontWeight: 700, color: '#0f172a' }}>{overview.prevalence.bmiNormal}</span> out of {overview.prevalence.screened} students screened are in the healthy BMI range.
+                      </p>
+                    </div>
+                  </div>
                 </motion.div>
               )}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
@@ -547,6 +814,61 @@ const Dashboard: React.FC = () => {
               Register Institution Now
             </button>
           </motion.div>
+        )}
+
+        {/* Edit Leadership Modal */}
+        {showEditLeadership && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1.5rem' }}>
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="glass-card" 
+              style={{ padding: '2.5rem', background: 'white', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}
+            >
+              <div style={{ marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Update Leadership</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Modify the medical and administrative heads of the institution.</p>
+              </div>
+              
+              <div style={{ display: 'grid', gap: '1.5rem' }}>
+                <LeadershipSection 
+                  title="Principal" 
+                  form={leadershipForm} 
+                  setForm={setLeadershipForm} 
+                  prefix="principal" 
+                />
+                <LeadershipSection 
+                  title="Vice Principal" 
+                  form={leadershipForm} 
+                  setForm={setLeadershipForm} 
+                  prefix="vicePrincipal" 
+                />
+                <LeadershipSection 
+                  title="Nurse / Counsellor" 
+                  form={leadershipForm} 
+                  setForm={setLeadershipForm} 
+                  prefix="nurseCounsellor" 
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0' }}>
+                <button 
+                  onClick={() => setShowEditLeadership(false)}
+                  className="btn btn-outline" 
+                  style={{ flex: 1, fontWeight: 700 }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleUpdateLeadership}
+                  className="btn btn-primary" 
+                  style={{ flex: 1, fontWeight: 700 }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </main>
     </div>

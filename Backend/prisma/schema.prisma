@@ -31,9 +31,16 @@ model School {
   udiseCode        String?
   schoolType       String
   boardAffiliation String
-  principalName    String
-  principalContact String
-  schoolEmail      String                @unique
+  principalName          String
+  principalContact       String
+  principalImage         String?
+  vicePrincipalName      String?
+  vicePrincipalContact   String?
+  vicePrincipalImage     String?
+  nurseCounsellorName    String?
+  nurseCounsellorContact String?
+  nurseCounsellorImage   String?
+  schoolEmail            String                @unique
   studentStrength  Int
   address          String
   state            String
@@ -47,6 +54,7 @@ model School {
   updatedAt        DateTime              @updatedAt
   academicYear     String?
   channel          String?
+  annualCreditGoal Float?                 @default(50000)
   ambassadors      AmbassadorDirectory[]
   certifications   Certification[]
   children         Child[]
@@ -137,6 +145,7 @@ model Event {
   completedAt    DateTime?
   attendanceJson Json?
   ambassadorId   Int?
+  goalAmount     Float?               @default(0)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   ambassador     AmbassadorDirectory? @relation(fields: [ambassadorId], references: [id])
@@ -175,10 +184,12 @@ model Certification {
 
 enum EventType {
   GENERAL_CHECKUP
+  IMMUNIZATION
   DENTAL_SCREENING
   VISION_SCREENING
   BMI_ASSESSMENT
   NUTRITION_SESSION
+  MENTAL_WELLNESS
   HPV_AWARENESS
   EXPERT_SESSION
   FIRE_DRILL

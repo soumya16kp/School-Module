@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useHealthContext } from '../context/HealthContext';
 import { cardService } from '../services/api';
-import { Activity, HeartPulse, ShieldCheck, Calendar, ArrowLeft, Phone, Mail, GraduationCap, Stethoscope, Droplets, Apple, BrainCircuit, Syringe, Eye, CreditCard, Info } from 'lucide-react';
+import { Activity, HeartPulse, ShieldCheck, Calendar, ArrowLeft, Phone, Mail, GraduationCap, Stethoscope, Droplets, Apple, BrainCircuit, Syringe, Eye, CreditCard, Info, Edit } from 'lucide-react';
 import { getEventTypesForClass } from '../config/ageBands';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -11,22 +11,54 @@ import { motion } from 'framer-motion';
 const ChildProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { child, healthRecords, loading, fetchChildData, addHealthRecord } = useHealthContext();
+  const { child, healthRecords, loading, fetchChildData, addHealthRecord, updateHealthRecord } = useHealthContext();
+  
+  const userStr = localStorage.getItem('school_user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const role = user?.role || '';
   
   const [showAddForm, setShowAddForm] = useState(false);
   const [reportFile, setReportFile] = useState<File | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [idCardLoading, setIdCardLoading] = useState(false);
   
-  const uniqueYears = Array.from(new Set(healthRecords.map(r => r.academicYear))).sort().reverse();
+  const displayRecords = healthRecords.length > 0 ? healthRecords : [
+    {
+      id: -1,
+      academicYear: '2024-2025',
+      checkupDate: null,
+      height: null,
+      weight: null,
+      bmi: null,
+      bmiCategory: null,
+      dentalCheckup: 'Pending',
+      dentalCariesIndex: null,
+      dentalOverallHealth: 'Pending',
+      dentalReferralNeeded: false,
+      dentalReferralReason: '',
+      dentalNotes: '',
+      eyeCheckup: 'Pending',
+      eyeVisionLeft: 'Pending',
+      eyeVisionRight: 'Pending',
+      visionOverall: 'Pending',
+      visionReferralNeeded: false,
+      visionNotes: '',
+      immunization: false,
+      mentalWellness: false,
+      nutrition: false,
+      menstrualHygiene: false,
+    }
+  ];
+
+  const uniqueYears = Array.from(new Set(displayRecords.map(r => r.academicYear))).sort().reverse();
   
   useEffect(() => {
-    if (healthRecords.length > 0 && !selectedYear) {
-      setSelectedYear(healthRecords[healthRecords.length - 1].academicYear);
+    if (displayRecords.length > 0 && !selectedYear) {
+      setSelectedYear(displayRecords[displayRecords.length - 1].academicYear);
     }
-  }, [healthRecords]);
+  }, [displayRecords]);
 
-  const currentRecord = healthRecords.find(r => r.academicYear === selectedYear) || healthRecords[healthRecords.length - 1];
+  const currentRecord = displayRecords.find(r => r.academicYear === selectedYear) || displayRecords[displayRecords.length - 1];
 
   const deriveBmiAndCategory = (record: any) => {
     if (!record) return { bmiValue: null as number | null, bmiCategory: null as string | null };
@@ -81,6 +113,33 @@ const ChildProfile: React.FC = () => {
     }
   }, [id]);
 
+  const openEditForm = () => {
+    setFormData({
+      academicYear: currentRecord.academicYear,
+      checkupDate: currentRecord.checkupDate ? new Date(currentRecord.checkupDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      height: currentRecord.height || '',
+      weight: currentRecord.weight || '',
+      dentalCheckup: currentRecord.dentalCheckup || 'Pending',
+      dentalCavities: currentRecord.dentalCavities ?? currentRecord.dentalCariesIndex ?? '',
+      dentalOverallHealth: currentRecord.dentalOverallHealth || 'Healthy',
+      dentalReferralNeeded: currentRecord.dentalReferralNeeded || false,
+      dentalReferralReason: currentRecord.dentalReferralReason || '',
+      dentalNotes: currentRecord.dentalNotes || '',
+      eyeCheckup: currentRecord.eyeCheckup || 'Pending',
+      eyeVisionLeft: currentRecord.eyeVisionLeft || '6/6',
+      eyeVisionRight: currentRecord.eyeVisionRight || '6/6',
+      visionOverall: currentRecord.visionOverall || '',
+      visionReferralNeeded: currentRecord.visionReferralNeeded || false,
+      visionNotes: currentRecord.visionNotes || '',
+      immunization: currentRecord.immunization || false,
+      mentalWellness: currentRecord.mentalWellness || false,
+      nutrition: currentRecord.nutrition || false,
+      menstrualHygiene: currentRecord.menstrualHygiene || false,
+    });
+    setReportFile(null);
+    setShowAddForm(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
@@ -117,14 +176,19 @@ const ChildProfile: React.FC = () => {
     }
 
     try {
-      await addHealthRecord(parseInt(id), fd);
+      const isEditing = currentRecord && currentRecord.id !== -1 && currentRecord.academicYear === formData.academicYear;
+      if (isEditing) {
+        await updateHealthRecord(parseInt(id), currentRecord.id, fd);
+      } else {
+        await addHealthRecord(parseInt(id), fd);
+      }
       setShowAddForm(false);
       setReportFile(null);
       // Reset form
       setFormData(emptyForm);
     } catch (error) {
        console.error(error);
-       alert("Failed to add record");
+       alert("Failed to save record");
     }
   };
 
@@ -278,10 +342,17 @@ const ChildProfile: React.FC = () => {
 
           {/* Header & Actions */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 style={{ fontSize: '2rem' }}>Health Dashboard</h1>
-            <button onClick={() => setShowAddForm(!showAddForm)} className="btn btn-primary" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {showAddForm ? 'Cancel Entry' : '+ New Health Entry'}
-            </button>
+            <h1 style={{ fontSize: '2rem', color: 'var(--text-main)', fontWeight: 800 }}>Health Dashboard</h1>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'].includes(role) && (
+                <button onClick={openEditForm} className="btn" style={{ background: '#f8fafc', border: '1px solid var(--border)', color: 'var(--text-main)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <Edit size={18} /> Edit Current Record
+                </button>
+              )}
+              <button onClick={() => { setFormData(emptyForm); setShowAddForm(!showAddForm); }} className="btn btn-primary" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {showAddForm ? 'Cancel Entry' : '+ New Session Entry'}
+              </button>
+            </div>
           </div>
 
           {/* New Entry Form */}
@@ -493,7 +564,7 @@ const ChildProfile: React.FC = () => {
           )}
 
           {/* BMI Visualization */}
-          {healthRecords.length > 0 ? (
+          {displayRecords.length > 0 ? (
             <>
               <motion.div 
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
@@ -520,23 +591,29 @@ const ChildProfile: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div style={{ width: '100%', height: '300px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={healthRecords} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="academicYear" stroke="#94a3b8" tick={{ fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                      <YAxis yAxisId="left" stroke="#6366f1" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} />
-                      <YAxis yAxisId="right" orientation="right" stroke="#ec4899" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 600, padding: '12px' }} 
-                        itemStyle={{ padding: '4px 0' }}
-                      />
-                      <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '14px', fontWeight: 600 }} />
-                      <Line yAxisId="left" type="monotone" dataKey="bmi" name="BMI Score" stroke="#6366f1" strokeWidth={3} dot={{ stroke: '#6366f1', strokeWidth: 2, r: 4, fill: 'white' }} activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }} />
-                      <Line yAxisId="right" type="monotone" dataKey="weight" name="Weight (kg)" stroke="#ec4899" strokeWidth={3} dot={{ stroke: '#ec4899', strokeWidth: 2, r: 4, fill: 'white' }} activeDot={{ r: 6, strokeWidth: 0, fill: '#ec4899' }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+                {healthRecords.length > 0 ? (
+                  <div style={{ width: '100%', height: '300px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={healthRecords} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="academicYear" stroke="#94a3b8" tick={{ fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                        <YAxis yAxisId="left" stroke="#6366f1" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#ec4899" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} />
+                        <Tooltip 
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 600, padding: '12px' }} 
+                          itemStyle={{ padding: '4px 0' }}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '14px', fontWeight: 600 }} />
+                        <Line yAxisId="left" type="monotone" dataKey="bmi" name="BMI Score" stroke="#6366f1" strokeWidth={3} dot={{ stroke: '#6366f1', strokeWidth: 2, r: 4, fill: 'white' }} activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }} />
+                        <Line yAxisId="right" type="monotone" dataKey="weight" name="Weight (kg)" stroke="#ec4899" strokeWidth={3} dot={{ stroke: '#ec4899', strokeWidth: 2, r: 4, fill: 'white' }} activeDot={{ r: 6, strokeWidth: 0, fill: '#ec4899' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div style={{ width: '100%', height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                    No historical growth data available
+                  </div>
+                )}
               </motion.div>
 
               {/* Dental & Eye Row */}
@@ -640,18 +717,54 @@ const ChildProfile: React.FC = () => {
                   </a>
                 </motion.div>
               )}
+
+              {/* Program Participation History */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+                className="glass-card" 
+                style={{ padding: '2rem', background: 'white' }}
+              >
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)', marginBottom: '1.5rem' }}>
+                  <Calendar size={22} color="var(--primary)" /> Program Participation History
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {child.attendanceHistory && child.attendanceHistory.length > 0 ? (
+                    child.attendanceHistory.map((ev: any, idx: number) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{ev.title}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {new Date(ev.scheduledAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                          </div>
+                        </div>
+                        <div style={{ 
+                          padding: '4px 12px', 
+                          borderRadius: '20px', 
+                          fontSize: '0.75rem', 
+                          fontWeight: 700, 
+                          background: ev.status === 'Present' ? '#dcfce7' : ev.status === 'Absent' ? '#fee2e2' : '#f1f5f9',
+                          color: ev.status === 'Present' ? '#166534' : ev.status === 'Absent' ? '#991b1b' : 'var(--text-muted)',
+                          border: '1px solid currentColor'
+                        }}>
+                          {ev.status}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
+                       No participation records found for this student.
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {currentRecord?.id === -1 && (
+                <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
+                  <p>This is a blank summary. Please edit the current record to add actual student health data.</p>
+                </div>
+              )}
             </>
-          ) : (
-             <motion.div 
-               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-               className="glass-card" 
-               style={{ padding: '4rem', textAlign: 'center', background: 'white', color: 'var(--text-muted)', border: '2px dashed var(--border)' }}
-             >
-                <Activity size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto', color: 'var(--primary)' }} />
-                <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>No Health Records Found</h3>
-                <p>Click "+ New Health Entry" to start monitoring this student's health profile.</p>
-             </motion.div>
-          )}
+          ) : null}
 
         </motion.div>
       </div>

@@ -47,12 +47,11 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: any) => {
 router.get("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
   try {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-    const child = await prisma.child.findUnique({
-      where: { id: parseInt(req.params.id as string) },
-      include: {
-        healthRecords: true
-      }
-    });
+    const school = await SchoolService.getSchoolByUserId(req.user.id);
+    if (!school) return res.status(404).json({ error: "School not found" });
+
+    const childId = parseInt(req.params.id as string);
+    const child = await ChildService.getChildWithAttendance(childId, school.id);
 
     if (!child) return res.status(404).json({ error: "Child not found" });
 
@@ -86,6 +85,28 @@ router.patch("/:id/status", authenticateJWT, async (req: AuthRequest, res: any) 
     }
 
     const updated = await ChildService.updateChildStatus(childId, req.body.status);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Update child details
+router.put("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    
+    // Only Principal, Admin and Wombto18 Ops can edit
+    const allowedRoles = ['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'];
+    if (!allowedRoles.includes(req.user.role)) {
+        return res.status(403).json({ error: "You do not have permission to edit student details." });
+    }
+
+    const childId = parseInt(req.params.id as string);
+    const child = await prisma.child.findUnique({ where: { id: childId } });
+    if (!child) return res.status(404).json({ error: "Child not found" });
+
+    const updated = await ChildService.updateChild(childId, req.body);
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: err.message });

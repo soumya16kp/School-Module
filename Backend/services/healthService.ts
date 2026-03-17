@@ -87,4 +87,76 @@ export class HealthService {
       orderBy: { createdAt: "asc" }, // Ascending for charts over time
     });
   }
+
+  static async updateRecord(recordId: number, data: any) {
+    const toFloatOrNull = (value: any): number | null => {
+      if (value === undefined || value === null || value === "") return null;
+      const parsed = parseFloat(value);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const toBool = (value: any): boolean => {
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value !== 0;
+      if (typeof value === "string") {
+        const v = value.toLowerCase();
+        return ["true", "1", "yes", "y", "on", "attended"].includes(v);
+      }
+      return false;
+    };
+
+    const height = toFloatOrNull(data.height);
+    const weight = toFloatOrNull(data.weight);
+    let bmi = toFloatOrNull(data.bmi);
+    if ((bmi === null || bmi === undefined) && height && weight) {
+      const hMeters = height / 100;
+      if (hMeters > 0) {
+        bmi = parseFloat((weight / (hMeters * hMeters)).toFixed(2));
+      }
+    }
+
+    const deriveBmiCategory = (value: number | null): string | null => {
+      if (value == null || !Number.isFinite(value)) return null;
+      if (value < 18.5) return "UNDERWEIGHT";
+      if (value < 25) return "NORMAL";
+      if (value < 30) return "OVERWEIGHT";
+      return "OBESE";
+    };
+
+    const bmiCategory = data.bmiCategory || deriveBmiCategory(bmi);
+
+    const updateData: any = {
+      academicYear: data.academicYear,
+      checkupDate: data.checkupDate ? new Date(data.checkupDate) : null,
+      height,
+      weight,
+      bmi,
+      bmiPercentile: toFloatOrNull(data.bmiPercentile),
+      bmiCategory,
+      dentalCariesIndex: toFloatOrNull(data.dentalCariesIndex ?? data.dentalCavities),
+      dentalHygieneScore: data.dentalHygieneScore || null,
+      dentalOverallHealth: data.dentalOverallHealth || null,
+      dentalReferralNeeded: data.dentalReferralNeeded != null ? toBool(data.dentalReferralNeeded) : false,
+      dentalReferralReason: data.dentalReferralReason || null,
+      dentalNotes: data.dentalNotes || null,
+      eyeCheckup: data.eyeCheckup || null,
+      eyeVisionLeft: data.eyeVisionLeft || null,
+      eyeVisionRight: data.eyeVisionRight || null,
+      visionOverall: data.visionOverall || null,
+      visionReferralNeeded: data.visionReferralNeeded != null ? toBool(data.visionReferralNeeded) : false,
+      visionNotes: data.visionNotes || null,
+      immunization: toBool(data.immunization),
+      mentalWellness: toBool(data.mentalWellness),
+      nutrition: toBool(data.nutrition),
+      menstrualHygiene: toBool(data.menstrualHygiene),
+    };
+    if (data.reportFile !== undefined) {
+      updateData.reportFile = data.reportFile;
+    }
+
+    return prisma.healthRecord.update({
+      where: { id: recordId },
+      data: updateData,
+    });
+  }
 }

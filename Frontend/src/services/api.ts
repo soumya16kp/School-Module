@@ -30,6 +30,14 @@ export const schoolService = {
   getAll: async () => {
     const response = await api.get('/schools/all');
     return response.data;
+  },
+  createOrder: async (amount: number) => {
+    const response = await api.post('/schools/create-order', { amount });
+    return response.data;
+  },
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/schools/${id}`, data);
+    return response.data;
   }
 };
 
@@ -65,6 +73,10 @@ export const childService = {
     const response = await api.patch(`/children/${id}/status`, { status });
     return response.data;
   },
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/children/${id}`, data);
+    return response.data;
+  },
   getById: async (id: number) => {
     // Assuming backend returns child details, let's create a getById in childRoutes too if not exists. Wait, child details can just be passed via state or fetched.
     const response = await api.get(`/children/${id}`); // We will make sure this exists in backend
@@ -79,6 +91,10 @@ export const healthService = {
   },
   addRecord: async (childId: number, data: any) => {
     const response = await api.post(`/health/${childId}`, data);
+    return response.data;
+  },
+  updateRecord: async (childId: number, recordId: number, data: any) => {
+    const response = await api.put(`/health/${childId}/${recordId}`, data);
     return response.data;
   }
 };
@@ -262,6 +278,23 @@ export const partnerService = {
   createOrder: async (amount: number) => {
     const response = await api.post('/partner/create-order', { amount });
     return response.data;
+  },
+  getInvoices: async () => {
+    const response = await api.get('/partner/invoices');
+    return response.data;
+  },
+  downloadInvoice: async (filename: string) => {
+    const response = await api.get(`/partner/invoices/${filename}`, {
+      responseType: 'blob'
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 };
 

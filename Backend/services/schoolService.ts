@@ -33,6 +33,7 @@ export class SchoolService {
         pocEmail: data.pocEmail,
         academicYear: data.academicYear,
         channel: data.channel,
+        annualCreditGoal: 5000, // Initial goal to unlock program assignments
         users: {
           connect: { id: userId }
         }
@@ -43,7 +44,7 @@ export class SchoolService {
   }
 
   static async getSchoolByUserId(userId: number) {
-    return prisma.school.findFirst({
+    const school = await prisma.school.findFirst({
       where: {
         users: {
           some: { id: userId }
@@ -60,9 +61,47 @@ export class SchoolService {
         events: true,
       }
     });
+
+    if (school) {
+        // Fallback for annualCreditGoal if it doesn't exist or is null
+        (school as any).annualCreditGoal = (school as any).annualCreditGoal || 50000;
+    }
+    return school;
   }
 
   static async getAllSchools() {
     return prisma.school.findMany();
+  }
+
+  static async updateSchool(schoolId: number, data: any) {
+    return prisma.school.update({
+      where: { id: schoolId },
+      data: {
+        schoolName: data.schoolName,
+        udiseCode: data.udiseCode,
+        schoolType: data.schoolType,
+        boardAffiliation: data.boardAffiliation,
+        principalName: data.principalName,
+        principalContact: data.principalContact,
+        principalImage: data.principalImage,
+        vicePrincipalName: data.vicePrincipalName,
+        vicePrincipalContact: data.vicePrincipalContact,
+        vicePrincipalImage: data.vicePrincipalImage,
+        nurseCounsellorName: data.nurseCounsellorName,
+        nurseCounsellorContact: data.nurseCounsellorContact,
+        nurseCounsellorImage: data.nurseCounsellorImage,
+        studentStrength: data.studentStrength ? parseInt(data.studentStrength) : undefined,
+        address: data.address,
+        state: data.state,
+        city: data.city,
+        pincode: data.pincode,
+        pocName: data.pocName,
+        pocDesignation: data.pocDesignation,
+        pocMobile: data.pocMobile,
+        pocEmail: data.pocEmail,
+        academicYear: data.academicYear,
+        annualCreditGoal: data.annualCreditGoal ? parseFloat(data.annualCreditGoal) : undefined,
+      },
+    });
   }
 }
