@@ -34,8 +34,15 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: any) => {
     }
     const { search } = req.query;
 
-    const teacherClass = req.user.role === 'CLASS_TEACHER' ? req.user.assignedClass : undefined;
-    const teacherSection = req.user.role === 'CLASS_TEACHER' ? req.user.assignedSection : undefined;
+    let teacherClass: number | undefined;
+    let teacherSection: string | undefined;
+    if (req.user.role === "CLASS_TEACHER") {
+      if (req.user.assignedClass == null) {
+        return res.json([]);
+      }
+      teacherClass = req.user.assignedClass;
+      teacherSection = req.user.assignedSection ?? undefined;
+    }
 
     const children = await ChildService.getChildrenBySchool(school.id, search as string, teacherClass, teacherSection);
     res.json(children);
@@ -47,19 +54,35 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: any) => {
 router.get("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
   try {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-    const school = await SchoolService.getSchoolByUserId(req.user.id);
-    if (!school) return res.status(404).json({ error: "School not found" });
-
-    const childId = parseInt(req.params.id as string);
-    const child = await ChildService.getChildWithAttendance(childId, school.id);
+    const child = await prisma.child.findUnique({
+      where: { id: parseInt(req.params.id as string) },
+      include: {
+        healthRecords: true
+      }
+    });
 
     if (!child) return res.status(404).json({ error: "Child not found" });
 
-    // Restriction for CLASS_TEACHER
-    if (req.user.role === 'CLASS_TEACHER') {
-        if (child.class !== req.user.assignedClass || child.section !== req.user.assignedSection) {
-            return res.status(403).json({ error: "You can only view students from your own class" });
-        }
+    const school = await SchoolService.getSchoolByUserId(req.user.id);
+    if (!school) {
+        return res.status(404).json({ error: "School not found" });
+    }
+
+    // Strict school scoping: no cross-school access
+    if (child.schoolId !== school.id) {
+      return res.status(403).json({ error: "You do not have access to this record" });
+    }
+
+    // CLASS_TEACHER: only their assigned class/section
+    if (req.user.role === "CLASS_TEACHER") {
+      const ac = req.user.assignedClass;
+      const as = req.user.assignedSection;
+      if (ac == null) {
+        return res.status(403).json({ error: "Your account is not assigned to a class. Contact school admin." });
+      }
+      if (child.class !== ac || (as != null && as !== "" && child.section !== as)) {
+        return res.status(403).json({ error: "You can only view students from your assigned class" });
+      }
     }
 
     res.json(child);
@@ -72,16 +95,23 @@ router.get("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
 router.patch("/:id/status", authenticateJWT, async (req: AuthRequest, res: any) => {
   try {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-    
+    const school = await SchoolService.getSchoolByUserId(req.user.id);
+    if (!school) return res.status(404).json({ error: "School not found" });
+
     const childId = parseInt(req.params.id as string);
     const child = await prisma.child.findUnique({ where: { id: childId } });
     if (!child) return res.status(404).json({ error: "Child not found" });
 
-    // Restriction for CLASS_TEACHER
-    if (req.user.role === 'CLASS_TEACHER') {
-        if (child.class !== req.user.assignedClass || child.section !== req.user.assignedSection) {
-            return res.status(403).json({ error: "You can only update status for students in your own class" });
-        }
+    if (child.schoolId !== school.id) {
+      return res.status(403).json({ error: "You do not have access to this record" });
+    }
+
+    if (req.user.role === "CLASS_TEACHER") {
+      const ac = req.user.assignedClass;
+      const as = req.user.assignedSection;
+      if (ac == null || child.class !== ac || (as != null && as !== "" && child.section !== as)) {
+        return res.status(403).json({ error: "You can only update status for students in your assigned class" });
+      }
     }
 
     const updated = await ChildService.updateChildStatus(childId, req.body.status);

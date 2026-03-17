@@ -108,10 +108,13 @@ const ChildProfile: React.FC = () => {
   const [formData, setFormData] = useState(emptyForm);
 
   useEffect(() => {
-    if (id) {
-      fetchChildData(parseInt(id));
-    }
-  }, [id]);
+    if (!id) return;
+    fetchChildData(parseInt(id)).catch((err: any) => {
+      if (err?.response?.status === 403) {
+        navigate('/dashboard', { state: { fromChild403: true, message: "You don't have access to this record." } });
+      }
+    });
+  }, [id, navigate]);
 
   const openEditForm = () => {
     setFormData({

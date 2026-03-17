@@ -53,6 +53,57 @@ router.get("/children", authenticateParentJWT, async (req: ParentRequest, res) =
   }
 });
 
+// GET /api/parent/children/:id/access-history - Who has accessed this child's data (for parent transparency)
+router.get("/children/:id/access-history", authenticateParentJWT, async (req: ParentRequest, res) => {
+  try {
+    if (!req.parent) return res.status(401).json({ message: "Unauthenticated" });
+    const childId = parseInt(req.params.id as string);
+    if (isNaN(childId)) return res.status(400).json({ message: "Invalid child id" });
+
+    const child = await prisma.child.findFirst({
+      where: {
+        id: childId,
+        OR: [
+          { fatherNumber: req.parent.phone },
+          { motherNumber: req.parent.phone }
+        ]
+      }
+    });
+    if (!child) return res.status(404).json({ message: "Child not found or access denied" });
+
+    const logs = await prisma.childDataAccessLog.findMany({
+      where: { childId },
+      orderBy: { createdAt: "desc" },
+      take: 100
+    });
+
+    const entries = logs.map((log: { id: number; action: string; actorType: string; metadata: unknown; createdAt: Date }) => {
+      const meta = (log.metadata as Record<string, unknown>) || {};
+      let description: string;
+      if (log.action === "emergency_access_granted") {
+        const name = (meta.requesterName as string) || "Responder";
+        description = `Emergency access granted to ${name} on ${new Date(log.createdAt).toLocaleDateString()}`;
+      } else if (log.action === "emergency_view") {
+        const name = (meta.requesterName as string) || "Responder";
+        description = `Emergency data viewed by ${name} on ${new Date(log.createdAt).toLocaleDateString()}`;
+      } else {
+        description = `${log.action} on ${new Date(log.createdAt).toLocaleDateString()}`;
+      }
+      return {
+        id: log.id,
+        action: log.action,
+        actorType: log.actorType,
+        description,
+        createdAt: log.createdAt,
+      };
+    });
+
+    res.json({ entries });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
 // GET /api/parent/children/:id - Detailed child health & stats
 router.get("/children/:id", authenticateParentJWT, async (req: ParentRequest, res) => {
   try {

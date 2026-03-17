@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import { PartnerService } from "../services/partnerService";
 import { authenticateJWT, AuthRequest } from "../utils/authMiddleware";
 import Razorpay from "razorpay";
@@ -59,7 +59,7 @@ router.get("/donations", authenticateJWT, async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/schools", authenticateJWT, async (req, res) => {
+router.get("/schools", authenticateJWT, async (req: Request, res: Response) => {
   try {
     const schools = await PartnerService.getAllSchools();
     res.json(schools);
@@ -68,7 +68,7 @@ router.get("/schools", authenticateJWT, async (req, res) => {
   }
 });
 
-router.get("/schools/:id/stats", authenticateJWT, async (req, res) => {
+router.get("/schools/:id/stats", authenticateJWT, async (req: Request, res: Response) => {
   try {
     const schoolId = parseInt(req.params.id as string);
     if (isNaN(schoolId)) return res.status(400).json({ message: "Invalid school id" });

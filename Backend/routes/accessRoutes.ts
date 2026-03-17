@@ -75,6 +75,26 @@ router.patch("/requests/:id/approve", authenticateParentJWT, async (req: ParentR
     if (!req.parent) return res.status(401).json({ message: "Unauthenticated" });
 
     const requestId = parseInt(req.params.id as string);
+    const existing = await prisma.accessRequest.findUnique({
+      where: { id: requestId },
+      include: { child: true }
+    });
+    if (!existing) return res.status(404).json({ message: "Request not found." });
+
+    const children = await prisma.child.findMany({
+      where: {
+        OR: [
+          { fatherNumber: req.parent!.phone },
+          { motherNumber: req.parent!.phone }
+        ]
+      },
+      select: { id: true }
+    });
+    const childIds = children.map((c: { id: number }) => c.id);
+    if (!childIds.includes(existing.childId)) {
+      return res.status(403).json({ message: "You can only approve requests for your own children." });
+    }
+
     const accessToken = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -83,7 +103,22 @@ router.patch("/requests/:id/approve", authenticateParentJWT, async (req: ParentR
       data: { status: "APPROVED", accessToken, expiresAt }
     });
 
-    res.json({ 
+    await prisma.childDataAccessLog.create({
+      data: {
+        childId: existing.childId,
+        actorType: "emergency_responder",
+        action: "emergency_access_granted",
+        metadata: {
+          requesterName: existing.requesterName,
+          requesterRole: existing.requesterRole,
+          requesterPhone: existing.requesterPhone,
+          accessRequestId: requestId,
+          accessTokenPrefix: accessToken.slice(0, 8),
+        },
+      },
+    });
+
+    res.json({
       message: "Access approved for 24 hours.",
       accessToken: updated.accessToken,
       expiresAt: updated.expiresAt
@@ -134,29 +169,45 @@ router.get("/view/:token", async (req, res) => {
       return res.status(403).json({ message: "Access token has expired. Please request again." });
     }
 
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket?.remoteAddress || null;
+
+    await prisma.childDataAccessLog.create({
+      data: {
+        childId: request.childId,
+        actorType: "emergency_responder",
+        action: "emergency_view",
+        ip: ip || undefined,
+        metadata: {
+          requesterName: request.requesterName,
+          accessRequestId: request.id,
+        },
+      },
+    });
+
     const { child } = request;
     const latestRecord = child.healthRecords[0] || null;
+
+    // 4.1 Emergency responder view: only emergency-relevant fields, no full health history
+    const bmiLabel = latestRecord?.bmiCategory ? String(latestRecord.bmiCategory).toLowerCase().replace(/_/g, " ") : null;
+    const hasReferral = latestRecord && (
+      (latestRecord as any).dentalReferralNeeded === true ||
+      (latestRecord as any).visionReferralNeeded === true
+    );
+    const lastCheckupSummary = latestRecord
+      ? `${bmiLabel ? `BMI ${bmiLabel}` : "BMI not recorded"}; ${hasReferral ? "active referral on file" : "no active referral"}`
+      : "No check-up record on file";
 
     res.json({
       student: {
         name: child.name,
+        school: child.school.schoolName,
         class: child.class,
         section: child.section,
-        gender: child.gender,
-        registrationNo: child.registrationNo,
-        school: child.school.schoolName,
-        city: child.school.city,
+        bloodGroup: child.bloodGroup || "Not recorded",
+        allergies: child.allergicTo || "None recorded",
       },
-      healthSummary: latestRecord ? {
-        academicYear: latestRecord.academicYear,
-        height: latestRecord.height,
-        weight: latestRecord.weight,
-        bmi: latestRecord.bmi,
-        bmiCategory: latestRecord.bmiCategory,
-        dentalOverallHealth: latestRecord.dentalOverallHealth,
-        visionOverall: latestRecord.visionOverall,
-        immunization: latestRecord.immunization,
-      } : null,
+      immunizationUpToDate: latestRecord?.immunization === true,
+      lastCheckupSummary,
       approvedFor: request.requesterName,
       expiresAt: request.expiresAt,
     });

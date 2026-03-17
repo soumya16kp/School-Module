@@ -27,7 +27,7 @@ const upload = multer({ storage });
 const assertSameSchoolForChild = async (userId: number, childId: number) => {
   const child = await prisma.child.findUnique({
     where: { id: childId },
-    select: { schoolId: true },
+    select: { schoolId: true, class: true, section: true },
   });
   if (!child) {
     return { ok: false, code: 404 as const, message: "Child not found" };
@@ -35,15 +35,34 @@ const assertSameSchoolForChild = async (userId: number, childId: number) => {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { schoolId: true },
+    select: { schoolId: true, role: true, assignedClass: true, assignedSection: true },
   });
 
   if (!user || user.schoolId == null || user.schoolId !== child.schoolId) {
     return {
       ok: false,
       code: 403 as const,
-      message: "You are not allowed to access this student's records",
+      message: "You do not have access to this record",
     };
+  }
+
+  if (user.role === "CLASS_TEACHER") {
+    const ac = user.assignedClass;
+    const as = user.assignedSection;
+    if (ac == null) {
+      return {
+        ok: false,
+        code: 403 as const,
+        message: "Your account is not assigned to a class. Contact school admin.",
+      };
+    }
+    if (child.class !== ac || (as != null && as !== "" && child.section !== as)) {
+      return {
+        ok: false,
+        code: 403 as const,
+        message: "You can only view students from your assigned class",
+      };
+    }
   }
 
   return { ok: true as const };

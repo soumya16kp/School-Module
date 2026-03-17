@@ -4,6 +4,9 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
 
 export interface ParentRequest extends Request {
+  headers: any;
+  body: any;
+  params: any;
   parent?: {
     phone: string;
     childIds: number[];
@@ -23,7 +26,7 @@ export const authenticateParentJWT = (req: ParentRequest, res: Response, next: N
        return;
     }
 
-    jwt.verify(token, JWT_SECRET, (err, decoded: any) => {
+    jwt.verify(token, JWT_SECRET, (err: jwt.VerifyErrors | null, decoded: any) => {
       if (err || decoded.role !== 'PARENT') {
          res.status(403).json({ message: "Invalid or unauthorized token" });
          return;

@@ -71,6 +71,10 @@ const ParentLogin: React.FC = () => {
           <p style={{ color: '#64748b', fontSize: '1.1rem' }}>Securely access your child's health & safety records</p>
         </div>
 
+        <div style={{ marginBottom: '1.5rem', padding: '0.875rem 1rem', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', fontSize: '0.9rem', color: '#0c4a6e', lineHeight: 1.5 }}>
+          Use only the phone number registered with the school as <strong>father's or mother's contact</strong>. Do not use a shared number if you are not the designated guardian.
+        </div>
+
         {error && (
           <motion.div 
             initial={{ opacity: 0, x: -10 }}

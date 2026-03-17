@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { schoolService, authService, dashboardService, partnerService } from '../services/api';
-import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, Calendar, ClipboardList, CalendarPlus, Users, Award, Heart, Globe, Activity, Eye, Smile, Pencil, UserCircle } from 'lucide-react';
+import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, Calendar, ClipboardList, CalendarPlus, Users, Award, Heart, Globe, Activity, Eye, Smile, Pencil, UserCircle, UserCog } from 'lucide-react';
 
 // PRD §4.1: Tab visibility by role
 const formatRole = (role: string) =>
@@ -20,6 +21,8 @@ const canSeeTab = (role: string, tab: string): boolean => {
       return ['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'].includes(role);
     case 'records':
       return ['SCHOOL_ADMIN', 'PRINCIPAL', 'CLASS_TEACHER', 'NURSE_COUNSELLOR', 'WOMBTO18_OPS'].includes(role);
+    case 'staff':
+      return ['SCHOOL_ADMIN', 'PRINCIPAL'].includes(role);
     case 'available-schools':
       return ['PARTNER', 'WOMBTO18_OPS'].includes(role);
     case 'my-donations':
@@ -71,16 +74,17 @@ import Events from './Events';
 import Ambassadors from './Ambassadors';
 import Certifications from './Certifications';
 import PartnerDashboard from './PartnerDashboard';
+import StaffManagement from './StaffManagement';
 import { CircularProgress } from '../components/CircularProgress';
 
-type TabId = 'dashboard' | 'school-details' | 'events' | 'ambassadors' | 'certifications' | 'records' | 'available-schools' | 'my-donations';
+type TabId = 'dashboard' | 'school-details' | 'events' | 'ambassadors' | 'certifications' | 'records' | 'staff' | 'available-schools' | 'my-donations';
 
 const Dashboard: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
   const role = user?.role ?? '';
-
-
 
   const [school, setSchool] = useState<any>(null);
   const [overview, setOverview] = useState<any>(null);
@@ -91,11 +95,20 @@ const Dashboard: React.FC = () => {
   const [leadershipForm, setLeadershipForm] = useState<any>({});
 
   const visibleTabs = useMemo(() => {
-    const tabs: TabId[] = ['dashboard', 'school-details', 'events', 'ambassadors', 'certifications', 'records', 'available-schools', 'my-donations'];
+    const tabs: TabId[] = ['dashboard', 'school-details', 'events', 'ambassadors', 'certifications', 'records', 'staff', 'available-schools', 'my-donations'];
     return tabs.filter((t) => canSeeTab(role, t));
   }, [role]);
 
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const state = location.state as { fromChild403?: boolean; message?: string } | undefined;
+    if (state?.fromChild403 && state?.message) {
+      setAccessDeniedMessage(state.message);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
     if (!visibleTabs.length) return;
@@ -314,6 +327,25 @@ const Dashboard: React.FC = () => {
             <ClipboardList size={20} /> Records
           </div>
           )}
+          {canSeeTab(role, 'staff') && (
+          <div 
+            onClick={() => setActiveTab('staff')}
+            style={{ 
+              background: activeTab === 'staff' ? 'var(--primary-light)' : 'transparent', 
+              color: activeTab === 'staff' ? 'var(--primary)' : 'var(--text-muted)', 
+              padding: '0.75rem 1rem', 
+              borderRadius: '12px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              fontWeight: '500', 
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            <UserCog size={20} /> Staff
+          </div>
+          )}
           {canSeeTab(role, 'available-schools') && (
           <div 
             onClick={() => setActiveTab('available-schools')}
@@ -361,6 +393,33 @@ const Dashboard: React.FC = () => {
 
       {/* Main Content */}
       <main style={{ flex: 1, padding: '3rem' }}>
+        {accessDeniedMessage && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: '1.5rem',
+              padding: '1rem 1.25rem',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '12px',
+              color: '#991b1b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem'
+            }}
+          >
+            <span>{accessDeniedMessage}</span>
+            <button
+              type="button"
+              onClick={() => setAccessDeniedMessage(null)}
+              style={{ background: 'transparent', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '1.25rem', padding: '0 4px' }}
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3rem' }}>
           <div>
             <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Welcome, {user?.name}</h1>
@@ -522,6 +581,8 @@ const Dashboard: React.FC = () => {
             <Ambassadors />
           ) : activeTab === 'certifications' ? (
             <Certifications />
+          ) : activeTab === 'staff' ? (
+            <StaffManagement />
           ) : activeTab === 'dashboard' ? (
             <div>
               {role === 'DISTRICT_VIEWER' && districtOverview && (
@@ -795,6 +856,8 @@ const Dashboard: React.FC = () => {
               </motion.div>
             </div>
             </div>
+          ) : activeTab === 'records' ? (
+            <ChildRecords />
           ) : (
             <ChildRecords />
           )

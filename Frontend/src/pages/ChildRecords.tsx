@@ -16,8 +16,12 @@ const ChildRecords: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterClass, setFilterClass] = useState('');
-  const [filterSection, setFilterSection] = useState('');
+  // Class Teacher: lock to assigned class/section only
+  const isClassTeacher = role === 'CLASS_TEACHER';
+  const assignedClass = user?.assignedClass != null ? String(user.assignedClass) : '';
+  const assignedSection = user?.assignedSection ?? '';
+  const [filterClass, setFilterClass] = useState(isClassTeacher ? assignedClass : '');
+  const [filterSection, setFilterSection] = useState(isClassTeacher ? assignedSection : '');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState<any>(null);
@@ -130,8 +134,8 @@ const ChildRecords: React.FC = () => {
       await dashboardService.exportReport({
         format: exportFilters.format,
         academicYear: exportFilters.academicYear || undefined,
-        class: exportFilters.class ? parseInt(exportFilters.class) : undefined,
-        section: exportFilters.section || undefined,
+        class: isClassTeacher && assignedClass ? parseInt(assignedClass) : (exportFilters.class ? parseInt(exportFilters.class) : undefined),
+        section: isClassTeacher ? (assignedSection || undefined) : (exportFilters.section || undefined),
         domain: exportFilters.domain !== 'all' ? exportFilters.domain : undefined,
       });
       setShowExportModal(false);
@@ -251,7 +255,9 @@ const ChildRecords: React.FC = () => {
             <select
               value={filterClass}
               onChange={(e) => setFilterClass(e.target.value)}
-              style={{ height: '50px', padding: '0 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: '#f8fafc', fontSize: '0.95rem', minWidth: '100px' }}
+              disabled={isClassTeacher}
+              title={isClassTeacher ? 'You can only view your assigned class' : ''}
+              style={{ height: '50px', padding: '0 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: isClassTeacher ? '#f1f5f9' : '#f8fafc', fontSize: '0.95rem', minWidth: '100px', opacity: isClassTeacher ? 0.9 : 1 }}
             >
               <option value="">All classes</option>
               {uniqueClasses.map((cls) => (
@@ -261,7 +267,9 @@ const ChildRecords: React.FC = () => {
             <select
               value={filterSection}
               onChange={(e) => setFilterSection(e.target.value)}
-              style={{ height: '50px', padding: '0 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: '#f8fafc', fontSize: '0.95rem', minWidth: '100px' }}
+              disabled={isClassTeacher}
+              title={isClassTeacher ? 'You can only view your assigned section' : ''}
+              style={{ height: '50px', padding: '0 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: isClassTeacher ? '#f1f5f9' : '#f8fafc', fontSize: '0.95rem', minWidth: '100px', opacity: isClassTeacher ? 0.9 : 1 }}
             >
               <option value="">All sections</option>
               {uniqueSections.map((sec) => (
@@ -275,13 +283,19 @@ const ChildRecords: React.FC = () => {
         </form>
         {(filterClass || filterSection) && (
           <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Showing {filteredChildren.length} of {children.length} students
-            <button
-              onClick={() => { setFilterClass(''); setFilterSection(''); }}
-              style={{ marginLeft: '0.5rem', color: 'var(--primary)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              Clear filters
-            </button>
+            {isClassTeacher ? (
+              <>Showing your class: {filteredChildren.length} students</>
+            ) : (
+              <>
+                Showing {filteredChildren.length} of {children.length} students
+                <button
+                  onClick={() => { setFilterClass(''); setFilterSection(''); }}
+                  style={{ marginLeft: '0.5rem', color: 'var(--primary)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Clear filters
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -296,8 +310,20 @@ const ChildRecords: React.FC = () => {
         ) : filteredChildren.length === 0 ? (
           <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: 'white', color: 'var(--text-muted)', border: '2px dashed var(--border)' }}>
              <User size={60} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
-             <h3>{children.length === 0 ? 'No Students Found' : 'No matches for filters'}</h3>
-             <p>{children.length === 0 ? 'Register a new student to see them listed here.' : 'Try different class or section filters.'}</p>
+             <h3>
+               {isClassTeacher && !assignedClass
+                 ? 'No class assigned'
+                 : children.length === 0
+                   ? 'No Students Found'
+                   : 'No matches for filters'}
+             </h3>
+             <p>
+               {isClassTeacher && !assignedClass
+                 ? 'Your account is not assigned to a class. Contact school admin.'
+                 : children.length === 0
+                   ? 'Register a new student to see them listed here.'
+                   : 'Try different class or section filters.'}
+             </p>
           </div>
         ) : (
           filteredChildren.map((child, index) => (
@@ -473,24 +499,29 @@ const ChildRecords: React.FC = () => {
 
                 <div className="grid-2">
                   <div className="form-group">
-                    <label>Father's Contact No</label>
+                    <label>Father's number (for parent login)</label>
                     <input 
                       required 
                       type="tel" 
                       value={formData.fatherNumber}
                       onChange={(e) => setFormData({...formData, fatherNumber: e.target.value})}
+                      placeholder="Guardian contact"
                     />
                   </div>
                   <div className="form-group">
-                    <label>Mother's Contact No</label>
+                    <label>Mother's number (for parent login)</label>
                     <input 
                       required 
                       type="tel" 
                       value={formData.motherNumber}
                       onChange={(e) => setFormData({...formData, motherNumber: e.target.value})}
+                      placeholder="Guardian contact"
                     />
                   </div>
                 </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                  Only the designated guardian should use these numbers for parent portal login. The school is responsible for ensuring these contacts belong to the legal guardian(s).
+                </p>
 
                 <div className="grid-2">
                   <div className="form-group">
@@ -794,9 +825,10 @@ const ChildRecords: React.FC = () => {
                     <input 
                       type="number" 
                       placeholder="e.g. 10"
-                      value={exportFilters.class}
-                      onChange={(e) => setExportFilters({ ...exportFilters, class: e.target.value })}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                      value={isClassTeacher ? assignedClass : exportFilters.class}
+                      onChange={(e) => !isClassTeacher && setExportFilters({ ...exportFilters, class: e.target.value })}
+                      disabled={isClassTeacher}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem', opacity: isClassTeacher ? 0.9 : 1 }}
                     />
                   </div>
                   <div>
@@ -804,9 +836,10 @@ const ChildRecords: React.FC = () => {
                     <input 
                       type="text" 
                       placeholder="e.g. A"
-                      value={exportFilters.section}
-                      onChange={(e) => setExportFilters({ ...exportFilters, section: e.target.value })}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                      value={isClassTeacher ? assignedSection : exportFilters.section}
+                      onChange={(e) => !isClassTeacher && setExportFilters({ ...exportFilters, section: e.target.value })}
+                      disabled={isClassTeacher}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '1rem', opacity: isClassTeacher ? 0.9 : 1 }}
                     />
                   </div>
                 </div>

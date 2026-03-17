@@ -20,12 +20,17 @@ export const HealthProvider = ({ children }: { children: ReactNode }) => {
   const fetchChildData = async (childId: number) => {
     try {
       setLoading(true);
+      setChild(null);
+      setHealthRecords([]);
       const childData = await childService.getById(childId);
       setChild(childData);
       const records = await healthService.getRecords(childId);
       setHealthRecords(records);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching child and health data:', error);
+      if (error?.response?.status === 403) {
+        throw error;
+      }
     } finally {
       setLoading(false);
     }

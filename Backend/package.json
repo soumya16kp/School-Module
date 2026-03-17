@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only index.ts",
-    "build": "npx prisma generate && npx prisma db push && cross-env CI=false tsc",
+    "build": "npx prisma generate && npx prisma db push --accept-data-loss && tsc",
     "fix:schoolid": "npx ts-node prisma/fix-duplicate-schoolId.ts",
+    "fix:user-role": "npx ts-node prisma/fix-user-role-enum.ts",
+    "relink:school-users": "npx ts-node prisma/relink-school-users.ts",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,6 +17,16 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.19.2",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.4.0",
+    "@types/nodemailer": "^7.0.11",
+    "@types/pdfkit": "^0.17.5",
+    "@types/pg": "^8.18.0",
+    "@types/qrcode": "^1.5.6",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.6",
@@ -22,26 +34,16 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
+    "nodemailer": "^8.0.2",
     "pdfkit": "^0.17.2",
     "prisma": "^6.19.2",
     "qrcode": "^1.5.4",
+    "razorpay": "^2.9.6",
     "twilio": "^5.13.0",
-    "razorpay": "^2.9.6"
-  },
-  "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/multer": "^2.1.0",
-    "@types/node": "^25.4.0",
-    "@types/pdfkit": "^0.17.5",
-    "@types/pg": "^8.18.0",
-    "@types/qrcode": "^1.5.6",
-    "cross-env": "^10.1.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   },
+  "devDependencies": {},
   "prisma": {
     "seed": "npx ts-node prisma/seed.ts"
   }

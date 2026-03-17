@@ -4,6 +4,10 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
 
 export interface AuthRequest extends Request {
+  // Express fields (widened to avoid TS complaining about missing properties)
+  headers: any;
+  body: any;
+  params: any;
   user?: {
     id: number;
     email: string;
@@ -49,7 +53,7 @@ export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunct
        return;
     }
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, JWT_SECRET, (err: jwt.VerifyErrors | null, user: any) => {
       if (err) {
          res.status(403).json({ message: "Invalid or expired token" });
          return;

@@ -5,18 +5,40 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api',
 });
 
-// Add token to requests
+// Add token to requests (skip for unauthenticated auth login routes)
 api.interceptors.request.use((config) => {
-  const isParentRoute = config.url?.startsWith('/parent');
-  const token = isParentRoute 
-    ? localStorage.getItem('parent_token') 
+  const url = config.url ?? '';
+  const isAuthLogin = url === '/auth/send-otp' || url === '/auth/verify-otp' || url === '/auth/register';
+  if (isAuthLogin) {
+    return config; // no Bearer for login/register
+  }
+  const isParentRoute = url.startsWith('/parent');
+  const token = isParentRoute
+    ? localStorage.getItem('parent_token')
     : localStorage.getItem('school_token');
-  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// On 401 (school API): clear token and redirect to login so session expiry is handled
+// Skip for auth login endpoints so user sees "Invalid email/password" or "Invalid OTP" on the form
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const url = err.config?.url ?? '';
+    const isAuthLogin = url === '/auth/send-otp' || url === '/auth/verify-otp';
+    if (err.response?.status === 401 && !err.config?.url?.startsWith('/parent') && !isAuthLogin) {
+      localStorage.removeItem('school_token');
+      localStorage.removeItem('school_user');
+      if (window.location.pathname !== '/' && !window.location.pathname.startsWith('/parent')) {
+        window.location.href = '/';
+      }
+    }
+    return Promise.reject(err);
+  }
+);
 
 export const schoolService = {
   register: async (data: any) => {
@@ -42,8 +64,14 @@ export const schoolService = {
 };
 
 export const authService = {
-  login: async (credentials: any) => {
-    const response = await api.post('/auth/login', credentials);
+  /** Step 1: verify email+password and trigger OTP email */
+  sendLoginOtp: async (email: string, password: string) => {
+    const response = await api.post('/auth/send-otp', { email, password });
+    return response.data; // { sent: true, devOtp?: string }
+  },
+  /** Step 2: verify OTP and receive JWT */
+  verifyLoginOtp: async (email: string, code: string) => {
+    const response = await api.post('/auth/verify-otp', { email, code });
     if (response.data.token) {
       localStorage.setItem('school_token', response.data.token);
       localStorage.setItem('school_user', JSON.stringify(response.data.user));
@@ -225,6 +253,10 @@ export const parentService = {
     const response = await api.post(`/parent/card-token/${childId}`);
     return response.data.token as string;
   },
+  getAccessHistory: async (childId: number) => {
+    const response = await api.get(`/parent/children/${childId}/access-history`);
+    return response.data.entries as { id: number; action: string; actorType: string; description: string; createdAt: string }[];
+  },
   logout: () => {
     localStorage.removeItem('parent_token');
     localStorage.removeItem('parent_info');
@@ -305,6 +337,10 @@ export const staffService = {
   },
   add: async (data: any) => {
     const response = await api.post('/staff', data);
+    return response.data;
+  },
+  update: async (id: number, data: { name?: string; phone?: string; role?: string; assignedClass?: string; assignedSection?: string }) => {
+    const response = await api.patch(`/staff/${id}`, data);
     return response.data;
   },
   remove: async (id: number) => {
