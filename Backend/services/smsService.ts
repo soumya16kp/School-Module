@@ -6,6 +6,7 @@
 
 const provider = process.env.SMS_PROVIDER?.toLowerCase();
 const IS_DEV = process.env.NODE_ENV !== "production";
+const SMS_DISABLED = process.env.DISABLE_SMS === "true";
 
 async function sendViaTwilio(phone: string, message: string): Promise<void> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -51,6 +52,15 @@ async function sendViaFast2SMS(phone: string, message: string): Promise<void> {
 
 export async function sendOtpSms(phone: string, code: string): Promise<void> {
   const message = `Your WombTo18 verification code is ${code}. Valid for 5 minutes.`;
+  await sendSms(phone, message);
+}
+
+export async function sendSms(phone: string, message: string): Promise<void> {
+  if (SMS_DISABLED) {
+    console.log(`[SMS DISABLED] To: ${phone} | Message: ${message}`);
+    return;
+  }
+
   if (provider === "twilio") {
     await sendViaTwilio(phone, message);
     return;
@@ -60,7 +70,7 @@ export async function sendOtpSms(phone: string, code: string): Promise<void> {
     return;
   }
   if (IS_DEV) {
-    console.log(`[SMS] OTP for ${phone}: ${code}`);
+    console.log(`[SMS] To: ${phone} | Message: ${message}`);
     return;
   }
   throw new Error(

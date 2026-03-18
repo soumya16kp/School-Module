@@ -280,3 +280,14 @@ model Donation {
   school      School   @relation(fields: [schoolId], references: [id])
   event       Event?   @relation(fields: [eventId], references: [id])
 }
+
+model NotificationDispatchLog {
+  id           Int      @id @default(autoincrement())
+  eventType    String
+  channel      String   // "sms" | "email" | "whatsapp"
+  recipient    String   // phone/email identifier
+  status       String   // "SENT" | "FAILED" | "SKIPPED"
+  error        String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+}

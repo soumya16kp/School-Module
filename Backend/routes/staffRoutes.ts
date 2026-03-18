@@ -2,6 +2,7 @@ import { Router } from "express";
 import { StaffService } from "../services/staffService";
 import { SchoolService } from "../services/schoolService";
 import { authenticateJWT, AuthRequest, requireRoles } from "../utils/authMiddleware";
+import { dispatchNotification } from "../services/notificationService";
 
 const router = Router();
 
@@ -27,6 +28,25 @@ router.post("/", async (req: AuthRequest, res) => {
     if (!school) return res.status(404).json({ error: "School not found" });
 
     const member = await StaffService.addStaff(school.id, req.body);
+
+    await dispatchNotification({
+      eventType: "STAFF_CHANGED",
+      recipients: [
+        {
+          phone: member.phone ?? undefined,
+          email: member.email ?? undefined,
+          label: "staff",
+        },
+      ],
+      channels: ["sms", "email"],
+      data: {
+        staffName: member.name,
+        changeType: "added",
+        schoolName: school.schoolName,
+      },
+      metadata: { staffId: member.id, schoolId: school.id },
+    });
+
     res.status(201).json(member);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -41,6 +61,19 @@ router.patch("/:id", async (req: AuthRequest, res) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid staff id" });
     const updated = await StaffService.updateStaff(id, school.id, req.body);
     if (!updated) return res.status(404).json({ error: "Staff member not found or not in your school" });
+
+    await dispatchNotification({
+      eventType: "STAFF_CHANGED",
+      recipients: [{ phone: updated.phone ?? undefined, email: updated.email ?? undefined, label: "staff" }],
+      channels: ["sms", "email"],
+      data: {
+        staffName: updated.name,
+        changeType: "updated",
+        schoolName: school.schoolName,
+      },
+      metadata: { staffId: updated.id, schoolId: school.id },
+    });
+
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -55,6 +88,19 @@ router.delete("/:id", async (req: AuthRequest, res) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid staff id" });
     const removed = await StaffService.removeStaff(id, school.id);
     if (!removed) return res.status(404).json({ error: "Staff member not found or not in your school" });
+
+    await dispatchNotification({
+      eventType: "STAFF_CHANGED",
+      recipients: [{ phone: removed.phone ?? undefined, email: removed.email ?? undefined, label: "staff" }],
+      channels: ["sms", "email"],
+      data: {
+        staffName: removed.name,
+        changeType: "removed",
+        schoolName: school.schoolName,
+      },
+      metadata: { staffId: removed.id, schoolId: school.id },
+    });
+
     res.json({ success: true });
   } catch (err: any) {
     res.status(400).json({ error: err.message });

@@ -2,6 +2,8 @@ import { Router } from "express";
 import prisma from "../prismaClient";
 import crypto from "crypto";
 import { authenticateParentJWT, ParentRequest } from "../utils/parentAuthMiddleware";
+import { dispatchNotification } from "../services/notificationService";
+import type { NotificationRecipient } from "../services/notificationService";
 
 const router = Router();
 
@@ -27,6 +29,33 @@ router.post("/request/:childId", async (req, res) => {
         reason,
         status: "PENDING",
       }
+    });
+
+    // Notify the child's parents (father/mother) about the pending access request.
+    const parentRecipients: NotificationRecipient[] = [
+      child.fatherNumber
+        ? { phone: child.fatherNumber, email: child.emailId ?? undefined, label: "father" }
+        : null,
+      child.motherNumber
+        ? { phone: child.motherNumber, email: child.emailId ?? undefined, label: "mother" }
+        : null,
+    ].filter(Boolean) as NotificationRecipient[];
+
+    // If parent email exists but phone doesn't, still send email notification.
+    if (parentRecipients.length === 0 && child.emailId) {
+      parentRecipients.push({ email: child.emailId, label: "parent" });
+    }
+
+    await dispatchNotification({
+      eventType: "ACCESS_REQUEST_SUBMITTED",
+      recipients: parentRecipients,
+      channels: ["sms", "email", "whatsapp"],
+      data: {
+        childName: child.name,
+        requesterName,
+        reason,
+      },
+      metadata: { accessRequestId: request.id },
     });
 
     res.status(201).json({ 
@@ -118,6 +147,41 @@ router.patch("/requests/:id/approve", authenticateParentJWT, async (req: ParentR
       },
     });
 
+    const requesterRecipients = [
+      existing.requesterPhone ? { phone: existing.requesterPhone, label: "requester" } : null,
+    ].filter(Boolean) as NotificationRecipient[];
+
+    const parentRecipients: NotificationRecipient[] = [
+      existing.child.fatherNumber
+        ? {
+            phone: existing.child.fatherNumber,
+            email: existing.child.emailId ?? undefined,
+            label: "father",
+          }
+        : null,
+      existing.child.motherNumber
+        ? {
+            phone: existing.child.motherNumber,
+            email: existing.child.emailId ?? undefined,
+            label: "mother",
+          }
+        : null,
+    ].filter(Boolean) as NotificationRecipient[];
+
+    if (parentRecipients.length === 0 && existing.child.emailId) {
+      parentRecipients.push({ email: existing.child.emailId, label: "parent" });
+    }
+
+    await dispatchNotification({
+      eventType: "ACCESS_APPROVED",
+      recipients: [...requesterRecipients, ...parentRecipients],
+      channels: ["sms", "email", "whatsapp"],
+      data: {
+        childName: existing.child.name,
+      },
+      metadata: { accessRequestId: requestId },
+    });
+
     res.json({
       message: "Access approved for 24 hours.",
       accessToken: updated.accessToken,
@@ -133,9 +197,65 @@ router.patch("/requests/:id/deny", authenticateParentJWT, async (req: ParentRequ
   try {
     if (!req.parent) return res.status(401).json({ message: "Unauthenticated" });
 
+    const requestId = parseInt(req.params.id as string);
+
+    const existing = await prisma.accessRequest.findUnique({
+      where: { id: requestId },
+      include: { child: true },
+    });
+
+    if (!existing) return res.status(404).json({ message: "Request not found." });
+
+    // Ensure parent can only deny their own child's requests
+    const children = await prisma.child.findMany({
+      where: {
+        OR: [{ fatherNumber: req.parent.phone }, { motherNumber: req.parent.phone }],
+      },
+      select: { id: true },
+    });
+    const childIds = children.map((c: { id: number }) => c.id);
+    if (!childIds.includes(existing.childId)) {
+      return res.status(403).json({ message: "You can only deny requests for your own children." });
+    }
+
     await prisma.accessRequest.update({
-      where: { id: parseInt(req.params.id as string) },
-      data: { status: "DENIED" }
+      where: { id: requestId },
+      data: { status: "DENIED" },
+    });
+
+    const requesterRecipients = [
+      existing.requesterPhone ? { phone: existing.requesterPhone, label: "requester" } : null,
+    ].filter(Boolean) as NotificationRecipient[];
+
+    const parentRecipients: NotificationRecipient[] = [
+      existing.child.fatherNumber
+        ? {
+            phone: existing.child.fatherNumber,
+            email: existing.child.emailId ?? undefined,
+            label: "father",
+          }
+        : null,
+      existing.child.motherNumber
+        ? {
+            phone: existing.child.motherNumber,
+            email: existing.child.emailId ?? undefined,
+            label: "mother",
+          }
+        : null,
+    ].filter(Boolean) as NotificationRecipient[];
+
+    if (parentRecipients.length === 0 && existing.child.emailId) {
+      parentRecipients.push({ email: existing.child.emailId, label: "parent" });
+    }
+
+    await dispatchNotification({
+      eventType: "ACCESS_DENIED",
+      recipients: [...requesterRecipients, ...parentRecipients],
+      channels: ["sms", "email", "whatsapp"],
+      data: {
+        childName: existing.child.name,
+      },
+      metadata: { accessRequestId: requestId },
     });
 
     res.json({ message: "Request denied." });

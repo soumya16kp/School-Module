@@ -1,6 +1,6 @@
 import prisma from "../prismaClient";
 import jwt from "jsonwebtoken";
-import { sendOtpSms } from "./smsService";
+import { dispatchNotification } from "./notificationService";
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
 const IS_DEV = process.env.NODE_ENV !== "production";
@@ -23,10 +23,19 @@ export class ParentService {
       data: { phone, code, expiresAt }
     });
 
-    // Skip SMS when using hardcoded demo OTP
-    if (code !== "356325") await sendOtpSms(phone, code);
+    await dispatchNotification({
+      eventType: "PARENT_LOGIN_OTP",
+      recipients: [{ phone, label: "parent_login" }],
+      channels: ["sms", "whatsapp"],
+      data: { code },
+      metadata: { phone },
+    });
 
-    return { sent: true, ...(IS_DEV && !process.env.SMS_PROVIDER ? { devOtp: code } : {}) };
+    const devOtpEnabled =
+      process.env.DISABLE_SMS === "true" ||
+      process.env.DISABLE_WHATSAPP === "true" ||
+      (IS_DEV && !process.env.SMS_PROVIDER);
+    return { sent: true, ...(devOtpEnabled ? { devOtp: code } : {}) };
   }
 
   static async verifyOtp(phone: string, code: string) {

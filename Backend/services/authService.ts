@@ -2,7 +2,7 @@ import prisma from "../prismaClient";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { sendOtpEmail } from "./emailService";
+import { dispatchNotification } from "./notificationService";
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
 const IS_DEV = process.env.NODE_ENV !== "production";
@@ -51,7 +51,20 @@ export class AuthService {
       data: { email, code, expiresAt },
     });
 
-    await sendOtpEmail(email, code);
+    // Dispatch OTP via configured channels (email + optional SMS/WhatsApp if phone exists).
+    await dispatchNotification({
+      eventType: "SCHOOL_LOGIN_OTP",
+      recipients: [
+        {
+          email: user.email,
+          phone: user.phone ?? undefined,
+          label: "school_login_user",
+        },
+      ],
+      channels: ["email", "sms", "whatsapp"],
+      data: { code },
+      metadata: { userId: user.id, email },
+    });
 
     const devOtp =
       EMAIL_DISABLED || (IS_DEV && !process.env.SMTP_HOST) ? { devOtp: code } : {};

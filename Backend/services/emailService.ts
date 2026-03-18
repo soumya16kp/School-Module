@@ -67,6 +67,31 @@ async function sendViaBrevoApi(to: string, code: string): Promise<void> {
   }
 }
 
+async function sendViaBrevo(to: string, subject: string, html: string, text?: string): Promise<void> {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  const fromStr = process.env.SMTP_FROM || "WombTo18 School <noreply@example.com>";
+  if (!apiKey) return;
+  const sender = parseFrom(fromStr);
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: sender.name, email: sender.email },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text || "",
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Brevo API ${res.status}: ${err}`);
+  }
+}
+
 function createTransporter() {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
@@ -85,18 +110,30 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
     console.log(`[EMAIL OTP DISABLED] To: ${email} | Code: ${code}`);
     return;
   }
+  await sendEmail(email, "Your WombTo18 login OTP", OTP_TEXT(code), OTP_HTML(code));
+}
+
+export async function sendEmail(
+  to: string,
+  subject: string,
+  text: string,
+  html?: string
+): Promise<void> {
+  if (EMAIL_DISABLED) {
+    console.log(`[EMAIL DISABLED] To: ${to} | Subject: ${subject}`);
+    return;
+  }
 
   const brevoKey = process.env.BREVO_API_KEY?.trim();
-
   if (brevoKey) {
-    await sendViaBrevoApi(email, code);
+    await sendViaBrevo(to, subject, html || "", text);
     return;
   }
 
   const transporter = createTransporter();
   if (!transporter) {
     if (IS_DEV) {
-      console.log(`[EMAIL OTP] To: ${email} | Code: ${code}`);
+      console.log(`[EMAIL] To: ${to} | Subject: ${subject}`);
       return;
     }
     throw new Error(
@@ -107,9 +144,9 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
   const from = process.env.SMTP_FROM || `WombTo18 School <${process.env.SMTP_USER}>`;
   await transporter.sendMail({
     from,
-    to: email,
-    subject: "Your WombTo18 login OTP",
-    text: OTP_TEXT(code),
-    html: OTP_HTML(code),
+    to,
+    subject,
+    text,
+    html: html || undefined,
   });
 }
