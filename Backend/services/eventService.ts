@@ -1,5 +1,6 @@
 import prisma from "../prismaClient";
 import { InvoiceService } from "./invoiceService";
+import { NotificationService } from "./notificationService";
 
 export class EventService {
   static async create(data: {
@@ -14,7 +15,7 @@ export class EventService {
     ambassadorId?: number;
     goalAmount?: number;
   }) {
-    return prisma.event.create({
+    const evt = await prisma.event.create({
       data: {
         schoolId: data.schoolId,
         type: data.type as any,
@@ -33,6 +34,11 @@ export class EventService {
         donations: true,
       },
     });
+
+    if (data.scheduledAt) {
+      NotificationService.notifyScheduledEvent(evt.id);
+    }
+    return evt;
   }
 
   static async listBySchool(schoolId: number, academicYear?: string) {
@@ -74,6 +80,7 @@ export class EventService {
       attendanceJson: object;
       ambassadorId: number | null;
       goalAmount: number;
+      loggingCompletedAt?: string | Date;
     }>
   ) {
     const result = await prisma.event.updateMany({
@@ -88,39 +95,78 @@ export class EventService {
         ...(data.attendanceJson !== undefined && { attendanceJson: data.attendanceJson }),
         ...(data.ambassadorId !== undefined && { ambassadorId: data.ambassadorId }),
         ...(data.goalAmount !== undefined && { goalAmount: data.goalAmount }),
+        ...(data.loggingCompletedAt !== undefined && { loggingCompletedAt: data.loggingCompletedAt }),
       },
     });
 
-    // If attendanceJson contains student-level data, sync with Child.status
+    // If attendanceJson contains student-level data, sync with Child.status and HealthRecords
     if (data.attendanceJson && (data.attendanceJson as any).studentStatuses) {
       const statuses = (data.attendanceJson as any).studentStatuses;
-      // We perform updates sequentially or use Promise.all. 
-      // For large schools, batching might be better, but child-by-child is safer for now.
+      const evt = await prisma.event.findFirst({ where: { id, schoolId }, select: { type: true, academicYear: true } });
+      const typesMap: Record<string, string> = {
+        'MENTAL_WELLNESS': 'mentalWellness',
+        'IMMUNIZATION': 'immunization',
+        'IMMUNIZATION_DEWORMING': 'immunization',
+        'NUTRITION_SESSION': 'nutrition',
+        'HYGIENE_WELLNESS': 'hygiene'
+      };
+
       await Promise.all(
-        Object.entries(statuses).map(([childId, status]) => {
-          return prisma.child.update({
-            where: { id: parseInt(childId), schoolId },
+        Object.entries(statuses).map(async ([childId, status]) => {
+          const cid = parseInt(childId);
+          await prisma.child.update({
+            where: { id: cid, schoolId },
             data: { status: status === 'Present' ? 'Done' : 'Absent' }
-          }).catch((err: any) => console.error(`Failed to sync status for child ${childId}`, err));
+          }).catch(() => {});
         })
       );
     }
 
-    // If completedAt is being set, trigger invoice generation
-    if (data.completedAt) {
+    // If loggingCompletedAt is being set, trigger invoice generation
+    if (data.loggingCompletedAt) {
       // Fetch full event details to send to InvoiceService
       const fullEvent = await prisma.event.findFirst({
         where: { id, schoolId },
-        include: { school: true, ambassador: true }
+        include: { 
+          school: true, 
+          ambassador: true,
+          donations: {
+            include: { user: true }
+          }
+        }
       });
 
-      if (fullEvent && fullEvent.ambassador) {
-        InvoiceService.generateEventConfirmation(fullEvent, fullEvent.school, fullEvent.ambassador)
+      if (fullEvent) {
+        // 1. Generate the shared invoice PDF
+        const ambassadorToInclude = fullEvent.ambassador || { name: 'Institutional Expert', organization: 'WombTo18' };
+        InvoiceService.generateEventConfirmation(fullEvent, fullEvent.school, ambassadorToInclude)
           .then(fileName => {
-            InvoiceService.sendToAmbassador(fullEvent, fileName);
+            // 2. Send to Ambassador (if exists)
+            if (fullEvent.ambassador) {
+              InvoiceService.sendToAmbassador(fullEvent, fileName);
+            }
+
+            // 3. Send to all Partners who donated to this event
+            if (fullEvent.donations && fullEvent.donations.length > 0) {
+              const uniquePartners = new Map();
+              fullEvent.donations.forEach((d: any) => {
+                if (d.user && d.user.role === 'PARTNER') {
+                  uniquePartners.set(d.user.id, d.user);
+                }
+              });
+
+              uniquePartners.forEach(partner => {
+                InvoiceService.sendToPartner(fullEvent, partner, fileName);
+              });
+            }
           })
-          .catch(err => console.error("Failed to generate event invoice:", err));
+          .catch(err => console.error("Failed to generate/send event invoice:", err));
       }
+    }
+
+    // If scheduledAt is being set or updated, trigger notification
+    if (data.scheduledAt) {
+      NotificationService.notifyScheduledEvent(id);
     }
 
     return result;

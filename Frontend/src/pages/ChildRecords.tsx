@@ -22,6 +22,11 @@ const ChildRecords: React.FC = () => {
   const assignedSection = user?.assignedSection ?? '';
   const [filterClass, setFilterClass] = useState(isClassTeacher ? assignedClass : '');
   const [filterSection, setFilterSection] = useState(isClassTeacher ? assignedSection : '');
+  const [filterHealth, setFilterHealth] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+  
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState<any>(null);
@@ -35,6 +40,8 @@ const ChildRecords: React.FC = () => {
     name: '',
     class: '',
     section: '',
+    fatherName: '',
+    motherName: '',
     fatherNumber: '',
     motherNumber: '',
     emailId: '',
@@ -87,6 +94,8 @@ const ChildRecords: React.FC = () => {
         name: '',
         class: '',
         section: '',
+        fatherName: '',
+        motherName: '',
         fatherNumber: '',
         motherNumber: '',
         emailId: '',
@@ -163,26 +172,45 @@ const ChildRecords: React.FC = () => {
     }
   };
 
-  const uniqueClasses = Array.from(new Set(children.map((c: any) => c.class))).sort((a, b) => a - b);
-  const uniqueSections = Array.from(new Set(children.map((c: any) => c.section))).sort();
+  const getHealthStatus = (child: any) => {
+    const latest = child.healthRecords?.[0];
+    if (!latest) return { color: '#94a3b8', label: 'No Data', icon: Clock }; // Gray
+    
+    const bmiCat = latest.bmiCategory || '';
+    let issues = 0;
+    
+    // Logic for health parameters
+    if (latest.dentalOverallHealth?.includes('Problem') || latest.dentalOverallHealth?.includes('Infection') || latest.dentalReferralNeeded) issues++;
+    if (latest.eyeCheckup?.includes('Issue') || latest.visionReferralNeeded) issues++;
+    if (bmiCat === 'OBESE') issues += 2;
+    if (bmiCat === 'UNDERWEIGHT' || bmiCat === 'OVERWEIGHT') issues++;
+
+    if (issues >= 2) return { color: '#ef4444', label: 'Critical', icon: XCircle }; // Red
+    if (issues === 1) return { color: '#f59e0b', label: 'Warning', icon: Clock }; // Yellow
+    return { color: '#10b981', label: 'Healthy', icon: CheckCircle2 }; // Green
+  };
 
   const filteredChildren = children.filter((c: any) => {
     const matchClass = !filterClass || String(c.class) === filterClass;
     const matchSection = !filterSection || c.section === filterSection;
-    return matchClass && matchSection;
+    const health = getHealthStatus(c);
+    const matchHealth = !filterHealth || health.label === filterHealth;
+    const matchStatus = !filterStatus || c.status === filterStatus;
+    
+    return matchClass && matchSection && matchHealth && matchStatus;
   });
 
-  const openIdCard = async (e: React.MouseEvent, childId: number) => {
-    e.stopPropagation();
-    try {
-      const token = await cardService.ensureToken(childId);
-      const url = `${window.location.origin}/card/${token}`;
-      window.open(url, '_blank', 'noopener');
-    } catch (err: any) {
-      console.error(err);
-      toast(err.response?.data?.message || err.message || 'Failed to generate ID card', 'error');
-    }
-  };
+  const totalPages = Math.max(1, Math.ceil(filteredChildren.length / PAGE_SIZE));
+  const pagedChildren = filteredChildren.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset to page 1 whenever a filter changes
+  const setFilterClassAndReset = (v: string) => { setFilterClass(v); setPage(1); };
+  const setFilterSectionAndReset = (v: string) => { setFilterSection(v); setPage(1); };
+  const setFilterHealthAndReset = (v: string) => { setFilterHealth(v); setPage(1); };
+  const setFilterStatusAndReset = (v: string) => { setFilterStatus(v); setPage(1); };
+
+  const uniqueClasses = Array.from(new Set(children.map((c: any) => c.class))).sort((a, b) => a - b);
+  const uniqueSections = Array.from(new Set(children.map((c: any) => c.section))).sort();
 
   const StatusBadge = ({ status, onClick }: { status: string, onClick?: (e: any) => void }) => {
     let bg = '#fef3c7', color = '#92400e', Icon = Clock;
@@ -192,7 +220,7 @@ const ChildRecords: React.FC = () => {
     return (
       <span 
         onClick={onClick}
-        style={{ background: bg, color: color, padding: '6px 14px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: onClick ? 'pointer' : 'default', transition: 'all 0.2s', border: `1px solid ${color}30` }}
+        style={{ background: bg, color: color, padding: '6px 14px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: onClick ? 'pointer' : 'default', transition: 'all 0.2s', border: `1px solid ${color}30` }}
       >
         <Icon size={14}/> {status}
       </span>
@@ -236,11 +264,12 @@ const ChildRecords: React.FC = () => {
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="glass-card" style={{ marginBottom: '2rem', background: 'white', padding: '1rem' }}>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+      <div className="glass-card" style={{ marginBottom: '2rem', background: 'white', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Full-length Search Bar */}
+          <div style={{ position: 'relative', width: '100%' }}>
             <Search 
-              size={20} 
+              size={22} 
               style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)' }} 
             />
             <input 
@@ -248,54 +277,110 @@ const ChildRecords: React.FC = () => {
               placeholder="Search by student name, class, section, or phone..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: '3rem', paddingRight: '1rem', height: '50px', background: '#f8fafc', border: 'none', borderRadius: '12px', width: '100%', fontSize: '1rem' }}
+              style={{ 
+                paddingLeft: '3.5rem', 
+                paddingRight: '1rem', 
+                height: '60px', 
+                background: '#f8fafc', 
+                border: '1px solid #e2e8f0', 
+                borderRadius: '16px', 
+                width: '100%', 
+                fontSize: '1.1rem',
+                transition: 'all 0.3s',
+                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--primary)';
+                e.currentTarget.style.boxShadow = '0 0 0 4px rgba(236, 72, 153, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.02)';
+              }}
             />
-          </div>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select
-              value={filterClass}
-              onChange={(e) => setFilterClass(e.target.value)}
-              disabled={isClassTeacher}
-              title={isClassTeacher ? 'You can only view your assigned class' : ''}
-              style={{ height: '50px', padding: '0 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: isClassTeacher ? '#f1f5f9' : '#f8fafc', fontSize: '0.95rem', minWidth: '100px', opacity: isClassTeacher ? 0.9 : 1 }}
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ position: 'absolute', right: '8px', top: '8px', bottom: '8px', height: '44px', padding: '0 2rem', borderRadius: '12px', fontWeight: 700 }}
             >
-              <option value="">All classes</option>
-              {uniqueClasses.map((cls) => (
-                <option key={cls} value={String(cls)}>Class {cls}</option>
-              ))}
-            </select>
-            <select
-              value={filterSection}
-              onChange={(e) => setFilterSection(e.target.value)}
-              disabled={isClassTeacher}
-              title={isClassTeacher ? 'You can only view your assigned section' : ''}
-              style={{ height: '50px', padding: '0 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: isClassTeacher ? '#f1f5f9' : '#f8fafc', fontSize: '0.95rem', minWidth: '100px', opacity: isClassTeacher ? 0.9 : 1 }}
-            >
-              <option value="">All sections</option>
-              {uniqueSections.map((sec) => (
-                <option key={sec} value={sec}>Section {sec}</option>
-              ))}
-            </select>
+              Search
+            </button>
           </div>
-          <button type="submit" className="btn btn-primary" style={{ height: '50px', padding: '0 2rem', borderRadius: '12px' }}>
-            Search
-          </button>
+
+          {/* Filters Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+            <div className="filter-group">
+              <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '6px', display: 'block', textTransform: 'uppercase' }}>Class</label>
+              <select
+                value={filterClass}
+                onChange={(e) => setFilterClassAndReset(e.target.value)}
+                disabled={isClassTeacher}
+                style={{ height: '48px', padding: '0 1rem', borderRadius: '10px', border: '1px solid var(--border)', background: isClassTeacher ? '#f1f5f9' : '#f8fafc', fontSize: '0.95rem', width: '100%', fontWeight: 500 }}
+              >
+                <option value="">All Classes</option>
+                {Array.from(new Set(children.map((c: any) => c.class))).sort((a, b) => a - b).map((cls) => (
+                  <option key={cls} value={String(cls)}>Class {cls}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '6px', display: 'block', textTransform: 'uppercase' }}>Section</label>
+              <select
+                value={filterSection}
+                onChange={(e) => setFilterSectionAndReset(e.target.value)}
+                disabled={isClassTeacher}
+                style={{ height: '48px', padding: '0 1rem', borderRadius: '10px', border: '1px solid var(--border)', background: isClassTeacher ? '#f1f5f9' : '#f8fafc', fontSize: '0.95rem', width: '100%', fontWeight: 500 }}
+              >
+                <option value="">All Sections</option>
+                {Array.from(new Set(children.map((c: any) => c.section))).sort().map((sec) => (
+                  <option key={sec} value={sec}>Section {sec}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '6px', display: 'block', textTransform: 'uppercase' }}>Health Status</label>
+              <select
+                value={filterHealth}
+                onChange={(e) => setFilterHealthAndReset(e.target.value)}
+                style={{ height: '48px', padding: '0 1rem', borderRadius: '10px', border: '1px solid var(--border)', background: '#f8fafc', fontSize: '0.95rem', width: '100%', fontWeight: 500 }}
+              >
+                <option value="">All Status</option>
+                <option value="Healthy">🟢 Healthy</option>
+                <option value="Warning">🟡 Warning</option>
+                <option value="Critical">🔴 Critical</option>
+                <option value="No Data">⚪ No Data</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '6px', display: 'block', textTransform: 'uppercase' }}>Attendance</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatusAndReset(e.target.value)}
+                style={{ height: '48px', padding: '0 1rem', borderRadius: '10px', border: '1px solid var(--border)', background: '#f8fafc', fontSize: '0.95rem', width: '100%', fontWeight: 500 }}
+              >
+                <option value="">All Students</option>
+                <option value="Done"> Present</option>
+                <option value="Absent"> Absent</option>
+                <option value="Pending"> Pending</option>
+              </select>
+            </div>
+          </div>
         </form>
-        {(filterClass || filterSection) && (
-          <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {isClassTeacher ? (
-              <>Showing your class: {filteredChildren.length} students</>
-            ) : (
-              <>
-                Showing {filteredChildren.length} of {children.length} students
-                <button
-                  onClick={() => { setFilterClass(''); setFilterSection(''); }}
-                  style={{ marginLeft: '0.5rem', color: 'var(--primary)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-                >
-                  Clear filters
-                </button>
-              </>
-            )}
+
+        {(filterClass || filterSection || filterHealth || filterStatus) && (
+          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+              Showing <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{filteredChildren.length}</span> results
+            </div>
+            <button
+              onClick={() => { setFilterClass(''); setFilterSection(''); setFilterHealth(''); setFilterStatus(''); setPage(1); }}
+              style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 700, background: '#fdf2f8', border: '1px solid var(--primary-light)', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
+            >
+              Reset Filters
+            </button>
           </div>
         )}
       </div>
@@ -326,7 +411,7 @@ const ChildRecords: React.FC = () => {
              </p>
           </div>
         ) : (
-          filteredChildren.map((child, index) => (
+          pagedChildren.map((child, index) => (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -339,7 +424,7 @@ const ChildRecords: React.FC = () => {
                 padding: '1.5rem', 
                 cursor: 'pointer',
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 2fr) 1.5fr 1fr 1.5fr 40px',
+                gridTemplateColumns: 'minmax(0, 2fr) 1.2fr 1.5fr 1fr 1.2fr 80px',
                 gap: '1.5rem',
                 alignItems: 'center',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -357,13 +442,13 @@ const ChildRecords: React.FC = () => {
             >
               {/* Profile Info */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', fontWeight: 700, flexShrink: 0 }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', fontWeight: 500, flexShrink: 0 }}>
                   {child.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '4px' }}>{child.name}</div>
+                  <div style={{ fontWeight: 500, fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '4px' }}>{child.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--primary)', background: '#fdf2f8', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--primary-light)' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 500, color: 'var(--primary)', background: '#fdf2f8', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--primary-light)' }}>
                       {child.registrationNo}
                     </span>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>| {child.gender}</span>
@@ -373,72 +458,143 @@ const ChildRecords: React.FC = () => {
 
               {/* Class Info */}
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>CLASS & SECTION</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--text-main)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 500, textTransform: 'uppercase' }}>Class & Section</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, color: 'var(--text-main)' }}>
                   <GraduationCap size={16} color="var(--primary)" /> Class {child.class}-{child.section}
                 </div>
               </div>
 
               {/* Contact Info */}
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>CONTACT & DETAILS</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Phone size={14} color="var(--primary)" /> {child.mobile}
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 500, textTransform: 'uppercase' }}>Contact Info</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Phone size={14} color="var(--primary)" /> {child.mobile || '—'}
                   </div>
-                  {(child.fatherNumber || child.motherNumber) && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Parents: {child.fatherNumber} {child.motherNumber && `/ ${child.motherNumber}`}
-                    </div>
-                  )}
                   {child.emailId && (
-                     <div style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
-                       <Mail size={12} /> {child.emailId}
-                     </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.8 }}>
+                      <Mail size={14} /> {child.emailId}
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Status Actions */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={(e) => openIdCard(e, child.id)}
-                    title="View ID Card"
-                    style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'white', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600 }}
-                  >
-                    <CreditCard size={16} /> ID Card
-                  </button>
-                  {['SCHOOL_ADMIN', 'PRINCIPAL', 'STAFF'].includes(role) && (
-                    <select 
-                      value={child.status}
-                      onChange={(e) => updateStatus(child.id, e.target.value)}
-                      style={{ fontSize: '0.8rem', padding: '8px 12px', borderRadius: '8px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-                    >
-                      <option value="Pending">🕒 Pending</option>
-                      <option value="Done">✅ Done</option>
-                      <option value="Absent">❌ Absent</option>
-                    </select>
-                  )}
-                  <StatusBadge status={child.status} />
+              {/* Health Status Indicator */}
+              <div style={{ padding: '4px 12px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>HEALTH STATUS</div>
+                {(() => {
+                  const health = getHealthStatus(child);
+                  const HealthIcon = health.icon;
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: health.color, fontWeight: 500, fontSize: '0.9rem' }}>
+                      <HealthIcon size={16} /> {health.label}
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: health.color }}></div>
+                    </div>
+                  );
+                })()}
               </div>
 
-              <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+              {/* Attendance/Checkup Selection */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
+                  {['SCHOOL_ADMIN', 'PRINCIPAL', 'STAFF', 'CLASS_TEACHER'].includes(role) && (
+                    <div style={{ position: 'relative' }}>
+                      <select 
+                        value={child.status}
+                        onChange={(e) => updateStatus(child.id, e.target.value)}
+                        style={{ 
+                          fontSize: '0.85rem', 
+                          padding: '8px 32px 8px 12px', 
+                          borderRadius: '10px', 
+                          background: child.status === 'Done' ? '#dcfce7' : child.status === 'Absent' ? '#fee2e2' : '#f1f5f9', 
+                          color: child.status === 'Done' ? '#166534' : child.status === 'Absent' ? '#991b1b' : 'var(--text-muted)',
+                          border: 'none', 
+                          cursor: 'pointer', 
+                          fontWeight: 500,
+                          appearance: 'none',
+                          WebkitAppearance: 'none'
+                        }}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Done">Present</option>
+                        <option value="Absent">Absent</option>
+                      </select>
+                      <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.6 }}>
+                        {child.status === 'Done' ? <CheckCircle2 size={16} /> : child.status === 'Absent' ? <XCircle size={16} /> : <Clock size={16} />}
+                      </div>
+                    </div>
+                  )}
+                  {(!['SCHOOL_ADMIN', 'PRINCIPAL', 'STAFF', 'CLASS_TEACHER'].includes(role)) && (
+                    <StatusBadge status={child.status} />
+                  )}
+              </div>
+
+              <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
                  {['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'].includes(role) && (
                    <button
                      onClick={(e) => { e.stopPropagation(); setEditFormData(child); setShowEditModal(true); }}
-                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px' }}
+                     style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '8px', borderRadius: '10px', transition: 'all 0.2s' }}
+                     onMouseEnter={(e) => e.currentTarget.style.background = '#fce7f3'}
+                     onMouseLeave={(e) => e.currentTarget.style.background = '#f1f5f9'}
                      title="Edit Record"
                    >
                      <Edit size={18} />
                    </button>
                  )}
-                 <ChevronRight size={20} />
+                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                   <ChevronRight size={20} />
+                 </div>
               </div>
 
             </motion.div>
           ))
         )}
       </div>
+
+      {/* Pagination Bar */}
+      {!loading && filteredChildren.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.5rem', padding: '1rem 1.5rem', background: 'white', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+            Showing <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredChildren.length)}</span> of <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{filteredChildren.length}</span> students
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid var(--border)', background: page === 1 ? '#f8fafc' : 'white', color: page === 1 ? '#cbd5e1' : 'var(--text-main)', cursor: page === 1 ? 'not-allowed' : 'pointer', fontWeight: 500, fontSize: '0.9rem', transition: 'all 0.2s' }}
+            >
+              ← Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${i}`} style={{ padding: '0 4px', color: 'var(--text-muted)' }}>…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p as number)}
+                    style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid', borderColor: page === p ? 'var(--primary)' : 'var(--border)', background: page === p ? 'var(--primary)' : 'white', color: page === p ? 'white' : 'var(--text-main)', cursor: 'pointer', fontWeight: page === p ? 600 : 400, fontSize: '0.9rem', transition: 'all 0.2s' }}
+                  >
+                    {p}
+                  </button>
+                )
+              )
+            }
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid var(--border)', background: page === totalPages ? '#f8fafc' : 'white', color: page === totalPages ? '#cbd5e1' : 'var(--text-main)', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontWeight: 500, fontSize: '0.9rem', transition: 'all 0.2s' }}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Modal */}
       <AnimatePresence>
@@ -493,6 +649,27 @@ const ChildRecords: React.FC = () => {
                       value={formData.section}
                       onChange={(e) => setFormData({...formData, section: e.target.value.toUpperCase()})}
                       placeholder="e.g. A"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                   <div className="form-group">
+                    <label>Father's Name</label>
+                    <input 
+                      type="text" 
+                      value={formData.fatherName}
+                      onChange={(e) => setFormData({...formData, fatherName: e.target.value})}
+                      placeholder="Full Name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Mother's Name</label>
+                    <input 
+                      type="text" 
+                      value={formData.motherName}
+                      onChange={(e) => setFormData({...formData, motherName: e.target.value})}
+                      placeholder="Full Name"
                     />
                   </div>
                 </div>
@@ -637,6 +814,25 @@ const ChildRecords: React.FC = () => {
                       maxLength={1}
                       value={editFormData.section || ''}
                       onChange={(e) => setEditFormData({...editFormData, section: e.target.value.toUpperCase()})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Father's Name</label>
+                    <input 
+                      type="text" 
+                      value={editFormData.fatherName || ''}
+                      onChange={(e) => setEditFormData({...editFormData, fatherName: e.target.value})}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Mother's Name</label>
+                    <input 
+                      type="text" 
+                      value={editFormData.motherName || ''}
+                      onChange={(e) => setEditFormData({...editFormData, motherName: e.target.value})}
                     />
                   </div>
                 </div>
@@ -873,3 +1069,4 @@ const ChildRecords: React.FC = () => {
 };
 
 export default ChildRecords;
+

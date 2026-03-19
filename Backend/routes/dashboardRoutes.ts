@@ -24,7 +24,16 @@ router.get("/overview", async (req: AuthRequest, res) => {
     }
     const academicYear =
       (req.query.academicYear as string) || school.academicYear || "2024-2025";
-    const overview = await DashboardService.getOverview(school.id, academicYear);
+    
+    let classNum = req.query.classNum ? parseInt(req.query.classNum as string) : undefined;
+    let section = req.query.section as string | undefined;
+
+    if (req.user!.role === "CLASS_TEACHER") {
+      classNum = req.user!.assignedClass ?? undefined;
+      section = req.user!.assignedSection ?? undefined;
+    }
+
+    const overview = await DashboardService.getOverview(school.id, academicYear, { classNum, section });
     res.json(overview);
   } catch (err: any) {
     res.status(500).json({ message: err.message || "Server error" });

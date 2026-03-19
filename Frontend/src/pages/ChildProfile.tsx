@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useHealthContext } from '../context/HealthContext';
 import { cardService } from '../services/api';
-import { Activity, HeartPulse, ShieldCheck, Calendar, ArrowLeft, Phone, Mail, GraduationCap, Stethoscope, Droplets, Apple, BrainCircuit, Syringe, Eye, CreditCard, Info, Edit } from 'lucide-react';
+import { User, CheckCircle2, Info, Calendar, ArrowLeft, Phone, Mail, GraduationCap, Stethoscope, Droplets, Apple, BrainCircuit, Syringe, Eye, CreditCard, Edit, Activity, HeartPulse, ShieldCheck, Clock } from 'lucide-react';
 import { getEventTypesForClass } from '../config/ageBands';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -12,6 +12,16 @@ const ChildProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { child, healthRecords, loading, fetchChildData, addHealthRecord, updateHealthRecord } = useHealthContext();
+  
+  const PREDEFINED_PROGRAMS = [
+    { type: 'GENERAL_CHECKUP', title: 'Annual Health Check-up' },
+    { type: 'MENTAL_WELLNESS', title: 'Mental Wellness Session' },
+    { type: 'NUTRITION_SESSION', title: 'Nutrition & Dietetics' },
+    { type: 'FIRE_DRILL', title: 'Fire Safety Drill' },
+    { type: 'CPR_FIRST_AID_TRAINING', title: 'CPR & First Aid Training' },
+    { type: 'HYGIENE_WELLNESS', title: 'Hygiene & Wellness' },
+    { type: 'IMMUNIZATION_DEWORMING', title: 'Immunization & Deworming' }
+  ];
   
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -43,10 +53,6 @@ const ChildProfile: React.FC = () => {
       visionOverall: 'Pending',
       visionReferralNeeded: false,
       visionNotes: '',
-      immunization: false,
-      mentalWellness: false,
-      nutrition: false,
-      menstrualHygiene: false,
     }
   ];
 
@@ -99,10 +105,6 @@ const ChildProfile: React.FC = () => {
     visionOverall: '',
     visionReferralNeeded: false,
     visionNotes: '',
-    immunization: false,
-    mentalWellness: false,
-    nutrition: false,
-    menstrualHygiene: false,
   };
 
   const [formData, setFormData] = useState(emptyForm);
@@ -134,10 +136,6 @@ const ChildProfile: React.FC = () => {
       visionOverall: currentRecord.visionOverall || '',
       visionReferralNeeded: currentRecord.visionReferralNeeded || false,
       visionNotes: currentRecord.visionNotes || '',
-      immunization: currentRecord.immunization || false,
-      mentalWellness: currentRecord.mentalWellness || false,
-      nutrition: currentRecord.nutrition || false,
-      menstrualHygiene: currentRecord.menstrualHygiene || false,
     });
     setReportFile(null);
     setShowAddForm(true);
@@ -217,6 +215,33 @@ const ChildProfile: React.FC = () => {
   );
   if (!child) return <div style={{ padding: '3rem', textAlign: 'center' }}>Child not found</div>;
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'COMPLETED': return 'var(--green-600)';
+      case 'PENDING': return 'var(--yellow-600)';
+      case 'NOT_APPLICABLE': return 'var(--gray-500)';
+      default: return 'var(--gray-500)';
+    }
+  };
+
+  const getStatusBgColor = (status: string) => {
+    switch (status) {
+      case 'COMPLETED': return 'var(--green-100)';
+      case 'PENDING': return 'var(--yellow-100)';
+      case 'NOT_APPLICABLE': return 'var(--gray-100)';
+      default: return 'var(--gray-100)';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'COMPLETED': return <CheckCircle2 size={20} />;
+      case 'PENDING': return <Clock size={20} />;
+      case 'NOT_APPLICABLE': return <Info size={20} />;
+      default: return <Info size={20} />;
+    }
+  };
+
   return (
     <div className="animate-fade-in" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       
@@ -287,6 +312,24 @@ const ChildProfile: React.FC = () => {
                   </div>
                 </div>
               )}
+              {child.fatherName && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fef3c7', color: '#92400e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Father's Name</div>
+                    <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{child.fatherName}</div>
+                  </div>
+                </div>
+              )}
+              {child.motherName && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fef3c7', color: '#92400e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Mother's Name</div>
+                    <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{child.motherName}</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -344,6 +387,79 @@ const ChildProfile: React.FC = () => {
           )}
 
           {/* Header & Actions */}
+          {/* Wellness Status Row (4 cards) - Primary focus, dynamic from Events */}
+          {child && child.wellnessStatus && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '0.5rem' }}>
+              {[
+                { title: "Immunization", status: child.wellnessStatus.immunization.status, icon: <Syringe size={22} />, color: "#f59e0b", delay: 0.1 },
+                { title: "Mental Wellness", status: child.wellnessStatus.mental.status, icon: <BrainCircuit size={22} />, color: "#8b5cf6", delay: 0.15 },
+                { title: "Nutrition", status: child.wellnessStatus.nutrition.status, icon: <Apple size={22} />, color: "#10b981", delay: 0.2 },
+                { title: "Hygiene", status: child.wellnessStatus.hygiene.status, icon: <Droplets size={22} />, color: "#0ea5e9", delay: 0.25 }
+              ].map((stat, idx) => {
+                const isAttended = stat.status === 'Attended';
+                const isScheduled = stat.status === 'Scheduled';
+                const isMissed = stat.status === 'Not Attended';
+
+                return (
+                  <motion.div 
+                    key={idx} 
+                    initial={{ opacity: 0, y: 15 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    transition={{ delay: stat.delay }}
+                    whileHover={{ y: -5, boxShadow: `0 12px 25px -5px ${stat.color}30` }}
+                    className="glass-card" 
+                    style={{ 
+                      padding: '1.25rem', 
+                      background: 'white', 
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center', 
+                      textAlign: 'center',
+                      borderTop: `4px solid ${isAttended ? '#10b981' : isScheduled ? '#3b82f6' : isMissed ? '#ef4444' : '#f1f5f9'}`,
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div style={{ 
+                      width: '50px', 
+                      height: '50px', 
+                      borderRadius: '14px', 
+                      background: `${stat.color}15`, 
+                      color: stat.color, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      marginBottom: '0.75rem',
+                      boxShadow: `0 4px 12px ${stat.color}20`
+                    }}>
+                        {stat.icon}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.3px' }}>{stat.title}</div>
+                    <div style={{ 
+                      fontSize: '0.7rem', 
+                      fontWeight: 700, 
+                      padding: '4px 10px', 
+                      borderRadius: '20px', 
+                      background: isAttended ? '#dcfce7' : isScheduled ? '#eff6ff' : isMissed ? '#fee2e2' : '#f8fafc', 
+                      color: isAttended ? '#166534' : isScheduled ? '#1d4ed8' : isMissed ? '#b91c1c' : '#64748b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      border: `1px solid ${isAttended ? '#10b98130' : isScheduled ? '#3b82f630' : isMissed ? '#ef444430' : '#e2e8f0'}`,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px'
+                    }}>
+                      {isAttended && <CheckCircle2 size={12} />}
+                      {isScheduled && <Clock size={12} />}
+                      {stat.status}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h1 style={{ fontSize: '2rem', color: 'var(--text-main)', fontWeight: 800 }}>Health Dashboard</h1>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -524,34 +640,6 @@ const ChildProfile: React.FC = () => {
                         </div>
                       </div>
                    </div>
-                   <div className="form-group">
-                      <label>Immunization Attended</label>
-                      <select value={String(formData.immunization)} onChange={e => setFormData({...formData, immunization: e.target.value === 'true'})}>
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                      </select>
-                   </div>
-                   <div className="form-group">
-                      <label>Mental Wellness Attended</label>
-                      <select value={String(formData.mentalWellness)} onChange={e => setFormData({...formData, mentalWellness: e.target.value === 'true'})}>
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                      </select>
-                   </div>
-                   <div className="form-group">
-                      <label>Nutrition Attended</label>
-                      <select value={String(formData.nutrition)} onChange={e => setFormData({...formData, nutrition: e.target.value === 'true'})}>
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                      </select>
-                   </div>
-                   <div className="form-group">
-                      <label>Menstrual Hygiene Attended</label>
-                      <select value={String(formData.menstrualHygiene)} onChange={e => setFormData({...formData, menstrualHygiene: e.target.value === 'true'})}>
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                      </select>
-                   </div>
                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
                       <label>Medical Report / Lab File (PDF/Image)</label>
                       <input 
@@ -672,36 +760,7 @@ const ChildProfile: React.FC = () => {
                 </div>
               )}
 
-              {/* Others Row (4 columns) */}
-              {currentRecord && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
-                  {[
-                    { title: "Immunization", val: currentRecord.immunization, icon: <Syringe size={20} color="#f59e0b" />, delay: 0.4 },
-                    { title: "Mental Wellness", val: currentRecord.mentalWellness, icon: <BrainCircuit size={20} color="#8b5cf6" />, delay: 0.45 },
-                    { title: "Nutrition", val: currentRecord.nutrition, icon: <Apple size={20} color="#10b981" />, delay: 0.5 },
-                    { title: "Hygiene", val: currentRecord.menstrualHygiene, icon: <Droplets size={20} color="#0ea5e9" />, delay: 0.55 }
-                  ].map((stat, idx) => (
-                    <motion.div 
-                       key={idx} 
-                       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: stat.delay }}
-                       whileHover={{ y: -3, boxShadow: '0 8px 15px rgba(236, 72, 153, 0.1)', borderColor: 'var(--primary-light)' }}
-                       className="glass-card" 
-                       style={{ padding: '1.25rem', background: 'white', transition: 'all 0.3s', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
-                    >
-                       <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
-                          {stat.icon}
-                       </div>
-                       <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{stat.title}</div>
-                       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                        {currentRecord.academicYear} • {currentRecord.checkupDate ? new Date(currentRecord.checkupDate).toLocaleDateString() : 'N/A'}
-                       </div>
-                       <div style={{ fontSize: '0.85rem', fontWeight: 700, padding: '4px 12px', borderRadius: '20px', background: stat.val ? '#dcfce7' : '#fee2e2', color: stat.val ? '#166534' : '#991b1b', border: `1px solid ${stat.val ? '#10b98130' : '#ef444430'}` }}>
-                        {stat.val ? 'Attended' : 'Not Attended'}
-                       </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+
 
               {/* Download Report Capability */}
               {currentRecord?.reportFile && (
@@ -731,33 +790,84 @@ const ChildProfile: React.FC = () => {
                   <Calendar size={22} color="var(--primary)" /> Program Participation History
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {child.attendanceHistory && child.attendanceHistory.length > 0 ? (
-                    child.attendanceHistory.map((ev: any, idx: number) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{ev.title}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            {new Date(ev.scheduledAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                  {(() => {
+                    const history = [...(child.activityHistory || [])];
+                    const predefinedWellnessTypes = ['MENTAL_WELLNESS', 'IMMUNIZATION_DEWORMING', 'IMMUNIZATION', 'NUTRITION_SESSION', 'HYGIENE_WELLNESS'];
+                    const nonWellnessPredefined = PREDEFINED_PROGRAMS.filter(p => !predefinedWellnessTypes.includes(p.type));
+                    const predefined = nonWellnessPredefined.filter(p => !history.some(h => h.type === p.type));
+                    
+                    const combined = [
+                      ...history,
+                      ...predefined.map(p => ({ title: p.title, type: p.type, status: 'Not Scheduled', scheduledAt: null }))
+                    ];
+
+                    return combined.length > 0 ? (
+                      combined.map((ev: any, idx: number) => {
+                        const isCompleted = ev.status === 'Present' || ev.status === 'Done' || ev.status === 'Absent';
+                        const isScheduled = ev.status === 'Scheduled';
+                        const isNotScheduled = ev.status === 'Not Scheduled';
+
+                        return (
+                          <div key={idx} style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            padding: '1.25rem', 
+                            background: isNotScheduled ? '#fcfcfc' : 'white', 
+                            borderRadius: '16px', 
+                            border: '1px solid #f1f5f9',
+                            boxShadow: isNotScheduled ? 'none' : '0 2px 4px rgba(0,0,0,0.02)',
+                            opacity: isNotScheduled ? 0.7 : 1
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                               <div style={{ 
+                                 width: '40px', 
+                                 height: '40px', 
+                                 borderRadius: '12px', 
+                                 background: isCompleted ? '#f0fdf4' : isScheduled ? '#eff6ff' : '#f8fafc',
+                                 color: isCompleted ? '#16a34a' : isScheduled ? '#3b82f6' : '#94a3b8',
+                                 display: 'flex',
+                                 alignItems: 'center',
+                                 justifyContent: 'center'
+                               }}>
+                                 {isCompleted ? <CheckCircle2 size={20} /> : isScheduled ? <Clock size={20} /> : <Calendar size={20} />}
+                               </div>
+                               <div>
+                                 <div style={{ fontWeight: 700, fontSize: '1rem', color: isNotScheduled ? 'var(--text-muted)' : 'var(--text-main)' }}>{ev.title}</div>
+                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                   {ev.scheduledAt ? (
+                                      <>
+                                        <Calendar size={12} />
+                                        {new Date(ev.scheduledAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                                      </>
+                                   ) : (
+                                      'Awaiting school scheduler'
+                                   )}
+                                 </div>
+                               </div>
+                            </div>
+                            <div style={{ 
+                              padding: '6px 14px', 
+                              borderRadius: '20px', 
+                              fontSize: '0.75rem', 
+                              fontWeight: 700, 
+                              background: ev.status === 'Present' || ev.status === 'Done' ? '#dcfce7' : ev.status === 'Absent' ? '#fee2e2' : ev.status === 'Scheduled' ? '#e0e7ff' : '#f1f5f9',
+                              color: ev.status === 'Present' || ev.status === 'Done' ? '#166534' : ev.status === 'Absent' ? '#991b1b' : ev.status === 'Scheduled' ? '#4338ca' : '#64748b',
+                              border: '1px solid currentColor',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              {ev.status === 'Done' ? 'Attended' : ev.status}
+                            </div>
                           </div>
-                        </div>
-                        <div style={{ 
-                          padding: '4px 12px', 
-                          borderRadius: '20px', 
-                          fontSize: '0.75rem', 
-                          fontWeight: 700, 
-                          background: ev.status === 'Present' ? '#dcfce7' : ev.status === 'Absent' ? '#fee2e2' : '#f1f5f9',
-                          color: ev.status === 'Present' ? '#166534' : ev.status === 'Absent' ? '#991b1b' : 'var(--text-muted)',
-                          border: '1px solid currentColor'
-                        }}>
-                          {ev.status}
-                        </div>
+                        );
+                      })
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
+                         No participation records found for this student.
                       </div>
-                    ))
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
-                       No participation records found for this student.
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </motion.div>
 

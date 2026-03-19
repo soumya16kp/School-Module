@@ -70,12 +70,6 @@ export class HealthService {
         visionReferralNeeded: data.visionReferralNeeded != null ? toBool(data.visionReferralNeeded) : false,
         visionNotes: data.visionNotes || null,
 
-        // Program attendance (checkbox-style)
-        immunization: toBool(data.immunization),
-        mentalWellness: toBool(data.mentalWellness),
-        nutrition: toBool(data.nutrition),
-        menstrualHygiene: toBool(data.menstrualHygiene),
-
         reportFile: data.reportFile || null,
       },
     });
@@ -145,10 +139,6 @@ export class HealthService {
       visionOverall: data.visionOverall || null,
       visionReferralNeeded: data.visionReferralNeeded != null ? toBool(data.visionReferralNeeded) : false,
       visionNotes: data.visionNotes || null,
-      immunization: toBool(data.immunization),
-      mentalWellness: toBool(data.mentalWellness),
-      nutrition: toBool(data.nutrition),
-      menstrualHygiene: toBool(data.menstrualHygiene),
     };
     if (data.reportFile !== undefined) {
       updateData.reportFile = data.reportFile;

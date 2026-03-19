@@ -60,6 +60,18 @@ export const schoolService = {
   update: async (id: number, data: any) => {
     const response = await api.put(`/schools/${id}`, data);
     return response.data;
+  },
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const response = await api.post('/schools/upload-avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data; // { url: '...' }
+  },
+  getDonations: async () => {
+    const response = await api.get('/schools/my-donations');
+    return response.data; // { id, annualCreditGoal, donations: [...] }
   }
 };
 
@@ -172,8 +184,11 @@ export const ambassadorService = {
 };
 
 export const dashboardService = {
-  getOverview: async (academicYear?: string) => {
-    const response = await api.get('/dashboard/overview', { params: academicYear ? { academicYear } : {} });
+  getOverview: async (academicYear?: string, classNum?: number, section?: string) => {
+    const params: any = { academicYear };
+    if (classNum) params.classNum = classNum;
+    if (section) params.section = section;
+    const response = await api.get('/dashboard/overview', { params });
     return response.data;
   },
   getDistrictOverview: async (academicYear?: string) => {

@@ -41,7 +41,16 @@ export class InvoiceService {
         doc.font("Helvetica").text(`Name: ${ambassador.name}`);
         doc.text(`Organization: ${ambassador.organization || 'N/A'}`);
         doc.text(`Contact: ${ambassador.phone || 'N/A'} / ${ambassador.email || 'N/A'}`);
-        doc.moveDown(2);
+        doc.moveDown();
+
+        // Include partners/donors if present
+        if (event.donations && event.donations.length > 0) {
+          doc.font("Helvetica-Bold").text("Event Sponsors:");
+          const names = Array.from(new Set(event.donations.map((d: any) => d.user?.name || "Anonymous"))).join(", ");
+          doc.font("Helvetica").text(`Funded by: ${names}`);
+          doc.moveDown();
+        }
+        doc.moveDown();
 
         // Attendance stats if available
         if (event.attendanceJson) {
@@ -79,6 +88,16 @@ export class InvoiceService {
     console.log(`To: ${ambassador.name} <${ambassador.email || ambassador.phone}>`);
     console.log(`Subject: Event Completion Confirmation - ${event.title}`);
     console.log(`Body: Hello ${ambassador.name}, your assigned event "${event.title}" has been successfully completed at ${event.school.schoolName}. Please find the invoice/confirmation attached: ${fileName}`);
+    console.log(`--------------------------------------------------`);
+  }
+
+  static async sendToPartner(event: any, partner: any, fileName: string) {
+    // Simulated partner delivery
+    console.log(`--------------------------------------------------`);
+    console.log(`[SIMULATED PARTNER INVOICE SENT]`);
+    console.log(`To Partner: ${partner.name} <${partner.email}>`);
+    console.log(`Subject: Your Funded Event is Complete: ${event.title}`);
+    console.log(`Body: Dear ${partner.name}, the program you sponsored, "${event.title}", has just been completed at ${event.school.schoolName}. You can find the official confirmation and impact report here: ${fileName}. Thank you for your support!`);
     console.log(`--------------------------------------------------`);
   }
 }

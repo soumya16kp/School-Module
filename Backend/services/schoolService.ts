@@ -2,45 +2,63 @@ import prisma from "../prismaClient";
 
 export class SchoolService {
   static async registerSchool(data: any, userId: number) {
-    // Generate Registration ID: SCH-WB-20250805-000056
+    console.log("Attempting school registration for user:", userId);
+    console.log("Registration data received:", JSON.stringify(data, null, 2));
+
+    // More robust unique registration ID: SCH-WB-20250805-HM8A2B
     const date = new Date();
     const dateStr = date.toISOString().split("T")[0]?.replace(/-/g, "") || "";
     const state = data.stateCode || "WB";
     
-    // Simple sequence logic for demonstration
-    const count = await prisma.school.count();
-    const sequence = (count + 1).toString().padStart(6, "0");
-    const registrationNo = `SCH-${state}-${dateStr}-${sequence}`;
+    // Using a portion of timestamp + random for uniqueness
+    const entropy = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const registrationNo = `SCH-${state}-${dateStr}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-    const school = await prisma.school.create({
-      data: {
-        registrationNo,
-        schoolName: data.schoolName,
-        udiseCode: data.udiseCode,
-        schoolType: data.schoolType,
-        boardAffiliation: data.boardAffiliation,
-        principalName: data.principalName,
-        principalContact: data.principalContact,
-        schoolEmail: data.schoolEmail,
-        studentStrength: parseInt(data.studentStrength),
-        address: data.address,
-        state: data.state,
-        city: data.city,
-        pincode: data.pincode,
-        pocName: data.pocName,
-        pocDesignation: data.pocDesignation,
-        pocMobile: data.pocMobile,
-        pocEmail: data.pocEmail,
-        academicYear: data.academicYear,
-        channel: data.channel,
-        annualCreditGoal: 5000, // Initial goal to unlock program assignments
-        users: {
-          connect: { id: userId }
-        }
-      },
+    // Prevent P2002 Unique constraint fail on schoolEmail
+    const existingEmail = await prisma.school.findUnique({
+      where: { schoolEmail: data.schoolEmail }
     });
+    if (existingEmail) {
+      throw new Error(`A school with the email ${data.schoolEmail} is already registered.`);
+    }
 
-    return school;
+    const studentStrength = parseInt(data.studentStrength);
+    try {
+      const school = await prisma.school.create({
+        data: {
+          registrationNo,
+          schoolName: data.schoolName,
+          udiseCode: data.udiseCode,
+          schoolType: data.schoolType,
+          boardAffiliation: data.boardAffiliation,
+          principalName: data.principalName,
+          principalContact: data.principalContact,
+          schoolEmail: data.schoolEmail,
+          studentStrength: isNaN(studentStrength) ? 0 : studentStrength,
+          address: data.address,
+          state: data.state,
+          city: data.city,
+          pincode: data.pincode,
+          pocName: data.pocName,
+          pocDesignation: data.pocDesignation,
+          pocMobile: data.pocMobile,
+          pocEmail: data.pocEmail,
+          ptaName: data.ptaName,
+          ptaDesignation: data.ptaDesignation,
+          ptaMobile: data.ptaMobile,
+          academicYear: data.academicYear || "2024-2025",
+          channel: data.channel || "DIRECT",
+          annualCreditGoal: 50000, // Matching the schema default or higher
+          users: {
+            connect: { id: Number(userId) }
+          }
+        },
+      });
+      return school;
+    } catch (createError: any) {
+      console.error("Prisma create error for school:", createError);
+      throw createError;
+    }
   }
 
   static async getSchoolByUserId(userId: number) {
@@ -87,9 +105,33 @@ export class SchoolService {
         vicePrincipalName: data.vicePrincipalName,
         vicePrincipalContact: data.vicePrincipalContact,
         vicePrincipalImage: data.vicePrincipalImage,
-        nurseCounsellorName: data.nurseCounsellorName,
-        nurseCounsellorContact: data.nurseCounsellorContact,
-        nurseCounsellorImage: data.nurseCounsellorImage,
+        
+        // Emergency
+        fireDeptName: data.fireDeptName,
+        fireDeptContact: data.fireDeptContact,
+        fireDeptImage: data.fireDeptImage,
+        policeName: data.policeName,
+        policeContact: data.policeContact,
+        policeImage: data.policeImage,
+        ndrfName: data.ndrfName,
+        ndrfContact: data.ndrfContact,
+        ndrfImage: data.ndrfImage,
+
+        // Health
+        nurseName: data.nurseName,
+        nurseContact: data.nurseContact,
+        nurseImage: data.nurseImage,
+        gynecologistName: data.gynecologistName,
+        gynecologistContact: data.gynecologistContact,
+        gynecologistImage: data.gynecologistImage,
+        pediatricianName: data.pediatricianName,
+        pediatricianContact: data.pediatricianContact,
+        pediatricianImage: data.pediatricianImage,
+
+        ptaName: data.ptaName,
+        ptaMobile: data.ptaMobile,
+        ptaDesignation: data.ptaDesignation,
+
         studentStrength: data.studentStrength ? parseInt(data.studentStrength) : undefined,
         address: data.address,
         state: data.state,

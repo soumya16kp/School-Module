@@ -54,19 +54,13 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: any) => {
 router.get("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
   try {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-    const child = await prisma.child.findUnique({
-      where: { id: parseInt(req.params.id as string) },
-      include: {
-        healthRecords: true
-      }
-    });
-
-    if (!child) return res.status(404).json({ error: "Child not found" });
-
     const school = await SchoolService.getSchoolByUserId(req.user.id);
     if (!school) {
         return res.status(404).json({ error: "School not found" });
     }
+
+    const child = await ChildService.getChildWithAttendance(parseInt(req.params.id as string), school.id);
+    if (!child) return res.status(404).json({ error: "Child not found" });
 
     // Strict school scoping: no cross-school access
     if (child.schoolId !== school.id) {

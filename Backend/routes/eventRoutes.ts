@@ -96,7 +96,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid event id" });
     }
-    const { type, title, description, academicYear, scheduledAt, completedAt, attendanceJson, ambassadorId, goalAmount } = req.body;
+    const { type, title, description, academicYear, scheduledAt, completedAt, loggingCompletedAt, attendanceJson, ambassadorId, goalAmount } = req.body;
     const updatePayload: Record<string, unknown> = {
       type,
       title,
@@ -109,6 +109,9 @@ router.patch("/:id", async (req: AuthRequest, res) => {
     };
     if (completedAt !== undefined) {
       updatePayload.completedAt = completedAt == null ? null : new Date(completedAt);
+    }
+    if (loggingCompletedAt !== undefined) {
+      updatePayload.loggingCompletedAt = loggingCompletedAt == null ? null : new Date(loggingCompletedAt);
     }
     await EventService.update(id, school.id, updatePayload as any);
     const event = await EventService.getById(id, school.id);
