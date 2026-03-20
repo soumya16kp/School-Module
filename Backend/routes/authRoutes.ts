@@ -8,7 +8,12 @@ router.post("/register", async (req, res) => {
     const user = await AuthService.register(req.body);
     res.status(201).json(user);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    // Unique email conflicts should be treated as a client conflict.
+    const msg = error?.message ?? "Unknown error";
+    if (msg.toLowerCase().includes("already registered")) {
+      return res.status(409).json({ message: msg });
+    }
+    res.status(400).json({ message: msg });
   }
 });
 

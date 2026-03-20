@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { schoolService, authService, dashboardService, partnerService } from '../services/api';
-import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, ClipboardList, CalendarPlus, Award, Heart, Globe, Activity, Eye, Smile, Pencil, UserCircle, UserCog, Upload, X, Shield, ChevronRight, HeartPulse, Flame, HardHat, Stethoscope, Baby, Users } from 'lucide-react';
+import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, ClipboardList, CalendarPlus, Award, Heart, Globe, Activity, Eye, Smile, Pencil, UserCircle, UserCog, Upload, X, Shield, ChevronRight, HeartPulse, Flame, HardHat, Stethoscope, Baby, Users, AlertTriangle, Clock, CheckCircle2, Bell } from 'lucide-react';
 
 // PRD §4.1: Tab visibility by role
 const formatRole = (role: string) =>
@@ -722,6 +722,76 @@ const Dashboard: React.FC = () => {
                       <p style={{ fontSize: '0.85rem', color: '#991b1b' }}>{overview.highRiskFlags.slice(0, 2).join('; ')}</p>
                     </div>
                   )}
+                </motion.div>
+              )}
+              {role !== 'DISTRICT_VIEWER' && overview && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ marginBottom: '2rem' }}
+                >
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Bell size={18} color="var(--primary)" /> Action Items
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    {/* Pending Tasks */}
+                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Pending Tasks</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {overview.studentsPending > 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#fffbeb', border: '1px solid #fde68a' }}>
+                            <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.875rem', color: '#92400e' }}>
+                              <strong>{overview.studentsPending}</strong> student{overview.studentsPending > 1 ? 's' : ''} missing health records
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                            <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.875rem', color: '#166534' }}>All student health records up to date</span>
+                          </div>
+                        )}
+                        {overview.certificationPending > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                            <AlertTriangle size={16} color="#2563eb" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.875rem', color: '#1e40af' }}>
+                              <strong>{overview.certificationPending}</strong> certification{overview.certificationPending > 1 ? 's' : ''} awaiting approval
+                            </span>
+                          </div>
+                        )}
+                        {overview.highRiskFlags && overview.highRiskFlags.map((flag: string) => (
+                          <div key={flag} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca' }}>
+                            <AlertTriangle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.875rem', color: '#991b1b' }}>{flag}</span>
+                          </div>
+                        ))}
+                        {overview.studentsPending === 0 && overview.certificationPending === 0 && (!overview.highRiskFlags || overview.highRiskFlags.length === 0) && (
+                          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>No pending tasks</p>
+                        )}
+                      </div>
+                    </div>
+                    {/* Upcoming Events */}
+                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Upcoming Events</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {overview.upcomingEvents && overview.upcomingEvents.length > 0 ? (
+                          overview.upcomingEvents.map((ev: any) => (
+                            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#faf5ff', border: '1px solid #e9d5ff' }}>
+                              <Clock size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#581c87', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</p>
+                                <p style={{ fontSize: '0.75rem', color: '#7c3aed', margin: 0 }}>
+                                  {ev.scheduledAt ? new Date(ev.scheduledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date TBD'}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>No upcoming events scheduled</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </motion.div>
               )}
               {overview && overview.prevalence && (

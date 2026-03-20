@@ -10,21 +10,40 @@ const EMAIL_DISABLED = process.env.DISABLE_EMAIL === "true";
 
 export class AuthService {
   static async register(data: any) {
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-    return prisma.user.create({
-      data: {
-        email: data.email,
-        password: hashedPassword,
-        name: data.name,
-        role: data.role || "SCHOOL_ADMIN",
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-      },
+    // Email is unique in the User model; handle duplicates gracefully.
+    const existing = await prisma.user.findUnique({
+      where: { email: data.email },
+      select: { id: true },
     });
+
+    if (existing) {
+      throw new Error("Email already registered. Please log in instead.");
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    try {
+      return await prisma.user.create({
+        data: {
+          email: data.email,
+          password: hashedPassword,
+          name: data.name,
+          role: data.role || "SCHOOL_ADMIN",
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+        },
+      });
+    } catch (err: any) {
+      // In case of a race, convert unique constraint to a friendly message.
+      if (err?.code === "P2002") {
+        throw new Error("Email already registered. Please log in instead.");
+      }
+      throw err;
+    }
   }
 
   /**

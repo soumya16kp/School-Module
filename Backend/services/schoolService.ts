@@ -5,14 +5,12 @@ export class SchoolService {
     console.log("Attempting school registration for user:", userId);
     console.log("Registration data received:", JSON.stringify(data, null, 2));
 
-    // More robust unique registration ID: SCH-WB-20250805-HM8A2B
+    // Registration number format: SCH-{STATE_CODE}-{YYYYMMDD}-{6-digit random}
     const date = new Date();
     const dateStr = date.toISOString().split("T")[0]?.replace(/-/g, "") || "";
-    const state = data.stateCode || "WB";
-    
-    // Using a portion of timestamp + random for uniqueness
-    const entropy = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const registrationNo = `SCH-${state}-${dateStr}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const state = data.stateCode || "XX";
+    const sixDigit = Math.floor(100000 + Math.random() * 900000).toString();
+    const registrationNo = `SCH-${state}-${dateStr}-${sixDigit}`;
 
     // Prevent P2002 Unique constraint fail on schoolEmail
     const existingEmail = await prisma.school.findUnique({

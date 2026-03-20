@@ -1,8 +1,24 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { schoolService } from '../services/api';
 import { School, User, MapPin, FileText, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getAllStateNames, getDistrictsByStateName, getStateByName } from '../data/state-district-data';
+
+const STATE_CODE_MAP: Record<string, string> = {
+  "Andaman And Nicobar Islands": "AN", "Andhra Pradesh": "AP",
+  "Arunachal Pradesh": "AR", "Assam": "AS", "Bihar": "BR",
+  "Chandigarh": "CH", "Chhattisgarh": "CT",
+  "Dadra And Nagar Haveli And Daman And Diu": "DH", "Delhi": "DL",
+  "Goa": "GA", "Gujarat": "GJ", "Haryana": "HR", "Himachal Pradesh": "HP",
+  "Jammu And Kashmir": "JK", "Jharkhand": "JH", "Karnataka": "KA",
+  "Kerala": "KL", "Ladakh": "LA", "Lakshadweep": "LD",
+  "Madhya Pradesh": "MP", "Maharashtra": "MH", "Manipur": "MN",
+  "Meghalaya": "ML", "Mizoram": "MZ", "Nagaland": "NL", "Odisha": "OR",
+  "Puducherry": "PY", "Punjab": "PB", "Rajasthan": "RJ", "Sikkim": "SK",
+  "Tamil Nadu": "TN", "Telangana": "TS", "Tripura": "TR",
+  "Uttar Pradesh": "UP", "Uttarakhand": "UK", "West Bengal": "WB",
+};
 
 const REGISTRATION_FEE = 5000;
 
@@ -34,13 +50,24 @@ const RegisterSchool: React.FC = () => {
     pocName: '',
     pocDesignation: '',
     pocMobile: '',
-    pocEmail: ''
+    pocEmail: '',
+    channel: 'DIRECT'
   });
+  const [districts, setDistricts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const stateNames = useMemo(() => getAllStateNames(), []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'state') {
+      const districtObjs = getDistrictsByStateName(value);
+      setDistricts(districtObjs.map((d: any) => d.district_name_english).sort());
+      const code = STATE_CODE_MAP[value] ?? getStateByName(value)?.state_code ?? '';
+      setFormData({ ...formData, state: value, city: '', stateCode: code });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,14 +103,18 @@ const RegisterSchool: React.FC = () => {
         handler: async function (response: any) {
           try {
             // 4. Complete registration on backend
-            await schoolService.register({
+            const school = await schoolService.register({
               ...formData,
               paymentId: response.razorpay_payment_id,
               orderId: response.razorpay_order_id,
               signature: response.razorpay_signature
             });
-            alert('Registration Successful!');
-            navigate('/dashboard');
+            const params = new URLSearchParams({
+              regNo: school.registrationNo ?? '',
+              school: school.schoolName ?? formData.schoolName,
+              email: school.schoolEmail ?? formData.schoolEmail,
+            });
+            navigate(`/register-school/thank-you?${params.toString()}`);
           } catch (err: any) {
             console.error("Registration update failed", err);
             const msg = err.response?.data?.message || "Internal server error";
@@ -139,6 +170,19 @@ const RegisterSchool: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <SectionTitle icon={School} title="Basic Information" />
+          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+            <label>Registration Type</label>
+            <select
+              name="channel"
+              value={formData.channel}
+              onChange={handleChange}
+              required
+              style={{ padding: '0.75rem', fontSize: '0.9rem', borderRadius: '10px', width: '100%' }}
+            >
+              <option value="DIRECT">Direct Onboarding</option>
+              <option value="CHANNEL_PARTNER">Via Channel Partner</option>
+            </select>
+          </div>
           <div className="grid-2">
             <div className="form-group">
               <label>School Name (as per records)</label>
@@ -185,17 +229,42 @@ const RegisterSchool: React.FC = () => {
           <div className="grid-2">
             <div className="form-group">
               <label>State</label>
-              <input name="state" onChange={handleChange} required />
+              <select
+                name="state"
+                onChange={handleChange}
+                value={formData.state}
+                required
+                style={{ padding: '0.75rem', fontSize: '0.9rem', borderRadius: '10px' }}
+              >
+                <option value="">Select State</option>
+                {stateNames.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
-              <label>City</label>
-              <input name="city" onChange={handleChange} required />
+              <label>District</label>
+              <select
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                required
+                disabled={districts.length === 0}
+                style={{ padding: '0.75rem', fontSize: '0.9rem', borderRadius: '10px' }}
+              >
+                <option value="">{formData.state ? 'Select District' : 'Select a state first'}</option>
+                {districts.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="grid-2">
             <div className="form-group">
-              <label>State Code (e.g., WB, DL)</label>
-              <input name="stateCode" maxLength={2} placeholder="WB" onChange={handleChange} required />
+              <label>State Code</label>
+              <input name="stateCode" value={formData.stateCode} readOnly style={{ background: 'var(--bg-secondary)', cursor: 'not-allowed' }} />
             </div>
             <div className="form-group">
               <label>Pincode</label>
