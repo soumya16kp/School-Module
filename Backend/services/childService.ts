@@ -18,6 +18,8 @@ export class ChildService {
         name: data.name,
         class: parseInt(data.class),
         section: data.section,
+        fatherName: data.fatherName,
+        motherName: data.motherName,
         fatherNumber: data.fatherNumber,
         motherNumber: data.motherNumber,
         emailId: data.emailId,
@@ -44,6 +46,12 @@ export class ChildService {
           ...(isNumericSearch ? [{ class: { equals: parseInt(search || "0") } }] : [])
         ] : undefined,
       },
+      include: {
+        healthRecords: {
+          orderBy: { academicYear: 'desc' },
+          take: 1
+        }
+      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -64,6 +72,8 @@ export class ChildService {
         name: data.name,
         class: typeof data.class !== 'undefined' ? parseInt(data.class) : undefined,
         section: data.section,
+        fatherName: data.fatherName,
+        motherName: data.motherName,
         fatherNumber: data.fatherNumber,
         motherNumber: data.motherNumber,
         emailId: data.emailId,
@@ -92,9 +102,13 @@ export class ChildService {
       orderBy: { scheduledAt: 'desc' }
     });
 
-    const attendanceHistory = events.map((ev: any) => {
+    const wellnessHistory = events.map((ev: any) => {
       const attJson = ev.attendanceJson as any;
-      const status = attJson?.studentStatuses?.[childId] || (ev.completedAt ? 'Present' : 'Scheduled'); 
+      let status = 'Scheduled';
+      if (ev.completedAt) {
+        const studentStatuses = attJson?.studentStatuses || {};
+        status = studentStatuses[childId] || studentStatuses[childId.toString()] || 'Absent';
+      }
       return {
         eventId: ev.id,
         title: ev.title,
@@ -103,8 +117,37 @@ export class ChildService {
         completedAt: ev.completedAt,
         status: status
       };
-    }).filter((e: any) => e.status !== 'Scheduled' || e.scheduledAt); // Keep future scheduled events or completed ones
+    }).filter((e: any) => e.status !== 'Scheduled' || e.scheduledAt);
 
-    return { ...child, attendanceHistory };
+    const wellnessTypes = ['MENTAL_WELLNESS', 'IMMUNIZATION_DEWORMING', 'IMMUNIZATION', 'NUTRITION_SESSION', 'HYGIENE_WELLNESS'];
+    const activityHistory = wellnessHistory.filter((h: any) => !wellnessTypes.includes(h.type));
+    
+    // Robust check for student status (handles numeric and string keys)
+    const getStudentStatus = (statusObj: any, cid: number) => {
+      if (!statusObj) return null;
+      return statusObj[cid] || statusObj[cid.toString()];
+    };
+
+    const deriveWellness = (types: string[]) => {
+      // Find the most recent event of these types (completed or not)
+      const latest = wellnessHistory.find((h: any) => types.includes(h.type));
+      if (!latest) return { status: 'Not Scheduled', date: null };
+      
+      if (!latest.completedAt) return { status: 'Scheduled', date: latest.scheduledAt };
+
+      return { 
+        status: (latest.status === 'Present' || latest.status === 'Done') ? 'Attended' : 'Not Attended', 
+        date: latest.completedAt 
+      };
+    };
+
+    const wellnessStatus = {
+        mental: deriveWellness(['MENTAL_WELLNESS']),
+        immunization: deriveWellness(['IMMUNIZATION_DEWORMING', 'IMMUNIZATION']),
+        nutrition: deriveWellness(['NUTRITION_SESSION']),
+        hygiene: deriveWellness(['HYGIENE_WELLNESS'])
+    };
+
+    return { ...child, activityHistory, wellnessStatus };
   }
 }

@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { dispatchNotification } from "./notificationService";
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
-const IS_DEV = process.env.NODE_ENV !== "production";
+const SHOW_DEV_OTP = process.env.DEBUG_OTP === "true";
 const EMAIL_DISABLED = process.env.DISABLE_EMAIL === "true";
 
 export class AuthService {
@@ -66,8 +66,8 @@ export class AuthService {
       metadata: { userId: user.id, email },
     });
 
-    const devOtp =
-      EMAIL_DISABLED || (IS_DEV && !process.env.SMTP_HOST) ? { devOtp: code } : {};
+    const showDevOtp = process.env.DEBUG_OTP === "true";
+    const devOtp = showDevOtp ? { devOtp: code } : {};
     return { sent: true, ...devOtp };
   }
 

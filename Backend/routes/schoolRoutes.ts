@@ -2,22 +2,42 @@ import express from "express";
 import { SchoolService } from "../services/schoolService";
 import { authenticateJWT, AuthRequest } from "../utils/authMiddleware";
 import Razorpay from "razorpay";
+import multer from "multer";
+import path from "path";
+import prisma from "../prismaClient";
 
 const router = express.Router();
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, `avatar-${Date.now()}${path.extname(file.originalname)}`);
+  },
+});
+
+const upload = multer({ storage });
 
 const razorpay = new Razorpay({
   key_id: process.env.REACT_APP_RAZORPAY_KEY_ID || "rzp_test_S6aIrNBO1w6KyP",
   key_secret: process.env.RAZORPAY_KEY_SECRET || "Bw19Gdf0VOrZk021W3yBpxgQ"
 });
 
+router.post("/upload-avatar", authenticateJWT, upload.single("avatar"), (req: AuthRequest, res) => {
+  if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+  const url = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+  res.json({ url });
+});
+
 router.post("/register", authenticateJWT, async (req: AuthRequest, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     const { paymentId, ...schoolData } = req.body;
-    // We can verify payment here if needed
     const school = await SchoolService.registerSchool(schoolData, req.user.id);
     res.status(201).json(school);
   } catch (error: any) {
+    console.error("School Registration Error:", error);
     res.status(400).json({ message: error.message });
   }
 });
@@ -44,6 +64,32 @@ router.post("/create-order", authenticateJWT, async (req: AuthRequest, res) => {
       message: error?.error?.description || error?.message || "Failed to generate Razorpay order",
       details: error
     });
+  }
+});
+
+router.get("/my-donations", authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    const school = await prisma.school.findFirst({
+      where: { users: { some: { id: req.user.id } } },
+      select: {
+        id: true,
+        annualCreditGoal: true,
+        donations: {
+          where: {
+            user: { role: 'PARTNER' }
+          },
+          orderBy: { date: 'desc' },
+          include: {
+            user: { select: { id: true, name: true, email: true, role: true } }
+          }
+        }
+      }
+    });
+    if (!school) return res.status(404).json({ message: "School not found" });
+    res.json(school);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 });
 

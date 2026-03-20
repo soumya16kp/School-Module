@@ -86,7 +86,8 @@ const RegisterSchool: React.FC = () => {
             navigate('/dashboard');
           } catch (err: any) {
             console.error("Registration update failed", err);
-            alert("Payment captured but failed to complete registration. Please contact support.");
+            const msg = err.response?.data?.message || "Internal server error";
+            alert(`Payment captured but failed to complete registration: ${msg}`);
           } finally {
             setLoading(false);
           }
@@ -222,6 +223,32 @@ const RegisterSchool: React.FC = () => {
               <label>POC Designation</label>
               <input name="pocDesignation" onChange={handleChange} />
             </div>
+          </div>
+          <div className="grid-2">
+            <div className="form-group">
+              <label>POC Mobile</label>
+              <input name="pocMobile" onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>POC Email</label>
+              <input name="pocEmail" onChange={handleChange} />
+            </div>
+          </div>
+
+          <SectionTitle icon={User} title="Parent Portal POC / PTA Details" />
+          <div className="grid-2">
+            <div className="form-group">
+              <label>Parent Rep / PTA Name</label>
+              <input name="ptaName" placeholder="PTA President / Parent POC" onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>PTA Designation</label>
+              <input name="ptaDesignation" placeholder="e.g. PTA Member" onChange={handleChange} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Parent Rep Mobile</label>
+            <input name="ptaMobile" onChange={handleChange} />
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ marginTop: '2rem', width: '100%', height: '56px', fontSize: '1.1rem' }} disabled={loading}>

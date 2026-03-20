@@ -11,6 +11,7 @@ export class AmbassadorService {
     serviceArea?: string;
     active?: boolean;
     notes?: string;
+    image?: string;
   }) {
     return prisma.ambassadorDirectory.create({
       data: {
@@ -23,6 +24,7 @@ export class AmbassadorService {
         serviceArea: data.serviceArea,
         active: data.active ?? true,
         notes: data.notes,
+        image: data.image,
       },
     });
   }
@@ -131,6 +133,7 @@ export class AmbassadorService {
       serviceArea: string;
       active: boolean;
       notes: string;
+      image: string;
     }>
   ) {
     const where =
@@ -148,6 +151,7 @@ export class AmbassadorService {
         ...(data.serviceArea !== undefined && { serviceArea: data.serviceArea }),
         ...(data.active !== undefined && { active: data.active }),
         ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.image !== undefined && { image: data.image }),
       },
     });
   }

@@ -1,9 +1,10 @@
 import prisma from "../prismaClient";
 import jwt from "jsonwebtoken";
-import { dispatchNotification } from "./notificationService";
+import { sendOtpSms } from "./smsService";
+import { sendOtpEmail } from "./emailService";
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "default_secret";
-const IS_DEV = process.env.NODE_ENV !== "production";
+const SHOW_DEV_OTP = process.env.DEBUG_OTP === "true";
 
 export class ParentService {
   static async sendOtp(phone: string) {
@@ -16,26 +17,26 @@ export class ParentService {
       throw new Error("No student record found with this phone number. Please contact the school.");
     }
 
-    const code = "356325"; // hardcoded for demo
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
 
     await prisma.otpCode.create({
       data: { phone, code, expiresAt }
     });
 
-    await dispatchNotification({
-      eventType: "PARENT_LOGIN_OTP",
-      recipients: [{ phone, label: "parent_login" }],
-      channels: ["sms", "whatsapp"],
-      data: { code },
-      metadata: { phone },
-    });
+    // Collect unique emails associated with these children
+    const emails = [...new Set(children.map((c: any) => c.emailId).filter(Boolean))] as string[];
 
-    const devOtpEnabled =
-      process.env.DISABLE_SMS === "true" ||
-      process.env.DISABLE_WHATSAPP === "true" ||
-      (IS_DEV && !process.env.SMS_PROVIDER);
-    return { sent: true, ...(devOtpEnabled ? { devOtp: code } : {}) };
+    // Send SMS
+    await sendOtpSms(phone, code);
+
+    // Also send to all associated emails
+    if (emails.length > 0) {
+      await Promise.all(emails.map(email => sendOtpEmail(email, code).catch(e => console.error(`Failed to send OTP email to ${email}`, e))));
+    }
+
+    const devOtp = SHOW_DEV_OTP ? { devOtp: code } : {};
+    return { sent: true, ...devOtp };
   }
 
   static async verifyOtp(phone: string, code: string) {
@@ -171,7 +172,11 @@ export class ParentService {
 
     const attendanceHistory = allEvents.map((ev: any) => {
       const attJson = ev.attendanceJson as any;
-      const status = attJson?.studentStatuses?.[childId] || (ev.completedAt ? 'Present' : 'Scheduled'); 
+      let status = 'Scheduled';
+      if (ev.completedAt) {
+        const studentStatuses = attJson?.studentStatuses || {};
+        status = studentStatuses[childId] || studentStatuses[childId.toString()] || 'Absent';
+      }
       return {
         eventId: ev.id,
         title: ev.title,

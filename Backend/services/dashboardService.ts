@@ -4,15 +4,19 @@ const DRILL_TYPES = ["FIRE_DRILL", "BLACKOUT_DRILL", "BUNKER_DRILL", "CPR_TRAINI
 const MIN_SCREENED = 30; // OQ-05: minimum cohort for prevalence metrics
 
 export class DashboardService {
-  static async getOverview(schoolId: number, academicYear: string) {
+  static async getOverview(schoolId: number, academicYear: string, filters?: { classNum?: number; section?: string }) {
+    const childWhere: any = { schoolId };
+    if (filters?.classNum) childWhere.class = filters.classNum;
+    if (filters?.section) childWhere.section = filters.section;
+
     const [children, healthRecords, events, certifications] = await Promise.all([
       prisma.child.findMany({ 
-        where: { schoolId }, 
+        where: childWhere, 
         select: { id: true, status: true } 
       }),
       prisma.healthRecord.findMany({
         where: { 
-          child: { schoolId }, 
+          child: childWhere, 
           academicYear 
         }
       }),

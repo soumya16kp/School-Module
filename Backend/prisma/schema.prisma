@@ -9,30 +9,48 @@ datasource db {
 }
 
 model User {
-  id              Int      @id @default(autoincrement())
-  email           String   @unique
+  id              Int        @id @default(autoincrement())
+  email           String     @unique
   password        String
   name            String
-  phone           String?
   schoolId        Int?
-  assignedClass   Int?     // for CLASS_TEACHER: only see this class
-  assignedSection String?  // for CLASS_TEACHER: only see this section (optional)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  role            UserRole @default(SCHOOL_ADMIN)
-  school          School?  @relation(fields: [schoolId], references: [id])
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  role            UserRole   @default(SCHOOL_ADMIN)
+  assignedClass   Int?
+  assignedSection String?
+  phone           String?
   donations       Donation[]
+  school          School?    @relation(fields: [schoolId], references: [id])
 }
 
 model School {
-  id               Int                   @id @default(autoincrement())
-  registrationNo   String                @unique
-  schoolName       String
-  udiseCode        String?
-  schoolType       String
-  boardAffiliation String
+  id                     Int                   @id @default(autoincrement())
+  registrationNo         String                @unique
+  schoolName             String
+  udiseCode              String?
+  schoolType             String
+  boardAffiliation       String
   principalName          String
   principalContact       String
+  schoolEmail            String                @unique
+  studentStrength        Int
+  address                String
+  state                  String
+  city                   String
+  pincode                String
+  pocName                String?
+  pocDesignation         String?
+  pocMobile              String?
+  pocEmail               String?
+  ptaName                String?
+  ptaMobile              String?
+  ptaDesignation         String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  academicYear           String?
+  channel                String?
+  annualCreditGoal       Float?                @default(50000)
   principalImage         String?
   vicePrincipalName      String?
   vicePrincipalContact   String?
@@ -40,63 +58,68 @@ model School {
   nurseCounsellorName    String?
   nurseCounsellorContact String?
   nurseCounsellorImage   String?
-  schoolEmail            String                @unique
-  studentStrength  Int
-  address          String
-  state            String
-  city             String
-  pincode          String
-  pocName          String?
-  pocDesignation   String?
-  pocMobile        String?
-  pocEmail         String?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  academicYear     String?
-  channel          String?
-  annualCreditGoal Float?                 @default(50000)
-  ambassadors      AmbassadorDirectory[]
-  certifications   Certification[]
-  children         Child[]
-  events           Event[]
-  users            User[]
-  donations        Donation[]
+  fireDeptName           String?
+  fireDeptContact        String?
+  fireDeptImage          String?
+  policeName             String?
+  policeContact          String?
+  policeImage            String?
+  ndrfName               String?
+  ndrfContact            String?
+  ndrfImage              String?
+  nurseName              String?
+  nurseContact           String?
+  nurseImage             String?
+  gynecologistName       String?
+  gynecologistContact    String?
+  gynecologistImage      String?
+  pediatricianName       String?
+  pediatricianContact    String?
+  pediatricianImage      String?
+  ambassadors            AmbassadorDirectory[]
+  certifications         Certification[]
+  children               Child[]
+  donations              Donation[]
+  events                 Event[]
+  users                  User[]
 }
 
 model Child {
-  id             Int              @id @default(autoincrement())
-  cardToken      String?          @unique // persistent token for QR ID card (OQ-01: token-based, no login)
-  registrationNo String           @unique
+  id             Int                  @id @default(autoincrement())
+  registrationNo String               @unique
   name           String
   class          Int
   section        String
+  fatherName     String?
+  motherName     String?
   fatherNumber   String
   motherNumber   String
   emailId        String?
   mobile         String
   gender         String
-  bloodGroup     String?
-  allergicTo     String?
-  status         String           @default("Pending")
+  status         String               @default("Pending")
   notes          String?
   schoolId       Int
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  school         School           @relation(fields: [schoolId], references: [id])
-  healthRecords  HealthRecord[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  allergicTo     String?
+  bloodGroup     String?
+  cardToken      String?              @unique
   accessRequests AccessRequest[]
+  school         School               @relation(fields: [schoolId], references: [id])
   dataAccessLogs ChildDataAccessLog[]
+  healthRecords  HealthRecord[]
 }
 
 model ChildDataAccessLog {
-  id         Int      @id @default(autoincrement())
-  childId    Int
-  actorType  String   // "school_user" | "parent" | "emergency_responder"
-  action     String   // "view_profile" | "view_health" | "export" | "emergency_access_granted" | "emergency_view"
-  ip         String?
-  metadata   Json?    // e.g. { requesterName, requesterRole, accessRequestId }
-  createdAt  DateTime @default(now())
-  child      Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  childId   Int
+  actorType String
+  action    String
+  ip        String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
 }
 
 model AccessRequest {
@@ -104,11 +127,11 @@ model AccessRequest {
   childId        Int
   requesterName  String
   requesterPhone String
-  requesterRole  String              // e.g. "Doctor", "Nurse", "Teacher"
+  requesterRole  String
   reason         String
   status         AccessRequestStatus @default(PENDING)
-  accessToken    String?             @unique // set when approved
-  expiresAt      DateTime?           // token expiry
+  accessToken    String?             @unique
+  expiresAt      DateTime?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   child          Child               @relation(fields: [childId], references: [id])
@@ -125,10 +148,6 @@ model HealthRecord {
   eyeCheckup           String?
   eyeVisionLeft        String?
   eyeVisionRight       String?
-  immunization         Boolean   @default(false)
-  mentalWellness       Boolean   @default(false)
-  nutrition            Boolean   @default(false)
-  menstrualHygiene     Boolean   @default(false)
   reportFile           String?
   childId              Int
   createdAt            DateTime  @default(now())
@@ -153,16 +172,17 @@ model Event {
   title          String
   description    String?
   academicYear   String
-  scheduledAt    DateTime?
-  completedAt    DateTime?
-  attendanceJson Json?
+  scheduledAt        DateTime?
+  completedAt        DateTime?
+  loggingCompletedAt DateTime?
+  attendanceJson     Json?
   ambassadorId   Int?
-  goalAmount     Float?               @default(0)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
+  goalAmount     Float?               @default(0)
+  donations      Donation[]
   ambassador     AmbassadorDirectory? @relation(fields: [ambassadorId], references: [id])
   school         School               @relation(fields: [schoolId], references: [id])
-  donations      Donation[]
 }
 
 model AmbassadorDirectory {
@@ -194,14 +214,50 @@ model Certification {
   school       School              @relation(fields: [schoolId], references: [id])
 }
 
+model OtpCode {
+  id        Int      @id @default(autoincrement())
+  phone     String?
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  email     String?
+
+  @@index([phone])
+  @@index([email])
+}
+
+model Donation {
+  id          Int      @id @default(autoincrement())
+  partnerId   Int
+  schoolId    Int
+  eventId     Int?
+  amount      Float
+  type        String
+  status      String
+  date        DateTime @default(now())
+  description String?
+  event       Event?   @relation(fields: [eventId], references: [id])
+  user        User     @relation(fields: [partnerId], references: [id])
+  school      School   @relation(fields: [schoolId], references: [id])
+}
+
+model NotificationDispatchLog {
+  id        Int      @id @default(autoincrement())
+  eventType String
+  channel   String
+  recipient String
+  status    String
+  error     String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
 enum EventType {
   GENERAL_CHECKUP
-  IMMUNIZATION
   DENTAL_SCREENING
   VISION_SCREENING
   BMI_ASSESSMENT
   NUTRITION_SESSION
-  MENTAL_WELLNESS
   HPV_AWARENESS
   EXPERT_SESSION
   FIRE_DRILL
@@ -209,7 +265,12 @@ enum EventType {
   BUNKER_DRILL
   CPR_TRAINING
   FIRST_AID_TRAINING
+  CPR_FIRST_AID_TRAINING
+  HYGIENE_WELLNESS
+  IMMUNIZATION_DEWORMING
   OTHER
+  MENTAL_WELLNESS
+  IMMUNIZATION
 }
 
 enum AmbassadorType {
@@ -220,6 +281,9 @@ enum AmbassadorType {
   FIRST_AID_TRAINER
   HEALTH_PARTNER
   OTHER
+  NURSE
+  GYNECOLOGIST
+  PEDIATRICIAN
 }
 
 enum CertificationType {
@@ -247,38 +311,11 @@ enum UserRole {
   SCHOOL_ADMIN
   PRINCIPAL
   CLASS_TEACHER
-  STAFF
   NURSE_COUNSELLOR
   DISTRICT_VIEWER
   WOMBTO18_OPS
   PARTNER
-}
-
-model OtpCode {
-  id        Int      @id @default(autoincrement())
-  phone     String?
-  email     String?
-  code      String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@index([phone])
-  @@index([email])
-}
-
-model Donation {
-  id          Int      @id @default(autoincrement())
-  partnerId   Int
-  schoolId    Int
-  eventId     Int?
-  amount      Float
-  type        String   // "EVENT", "CHECKUP", "GENERAL"
-  status      String   // "COMPLETED", "PENDING"
-  date        DateTime @default(now())
-  description String?
-  user        User     @relation(fields: [partnerId], references: [id])
-  school      School   @relation(fields: [schoolId], references: [id])
-  event       Event?   @relation(fields: [eventId], references: [id])
+  STAFF
 }
 
 model NotificationDispatchLog {

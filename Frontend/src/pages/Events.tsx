@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { eventService, schoolService, ambassadorService } from '../services/api';
-import { XCircle, CheckCircle2, Info, LayoutList, Calendar as CalendarIconUI, ShieldCheck, Search, Users, Lock } from 'lucide-react';
+import { eventService, schoolService, partnerService } from '../services/api';
+import { useSchoolData } from '../context/SchoolDataContext';
+import { XCircle, CheckCircle2, Info, LayoutList, Calendar as CalendarIconUI, ShieldCheck, Search, Users, Lock, CheckCircle, ClipboardCheck, Trash2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalendarView from '../components/CalendarView';
 
@@ -8,14 +9,23 @@ const PREDEFINED_PROGRAMS = [
   { type: 'GENERAL_CHECKUP', title: 'Annual Health Check-up', description: 'Comprehensive health screening for all students.' },
   { type: 'MENTAL_WELLNESS', title: 'Mental Wellness Session', description: 'Interactive workshop on emotional health and resilience.' },
   { type: 'NUTRITION_SESSION', title: 'Nutrition & Dietetics', description: 'Guidance on healthy eating habits and balanced diet.' },
-  { type: 'FIRE_DRILL', title: 'Fire Safety Drill', description: 'Emergency evacuation practice and fire safety training.' }
+  { type: 'FIRE_DRILL', title: 'Fire Safety Drill', description: 'Emergency evacuation practice and fire safety training.' },
+  { type: 'CPR_FIRST_AID_TRAINING', title: 'CPR & First Aid Training', description: 'Life-saving techniques and emergency response skills for students.' },
+  { type: 'HYGIENE_WELLNESS', title: 'Hygiene & Wellness', description: 'Promoting personal cleanliness and healthy daily habits.' },
+  { type: 'IMMUNIZATION_DEWORMING', title: 'Immunization & Deworming', description: 'Comprehensive vaccination and parasite prevention outreach.' }
 ];
 
 const Events: React.FC = () => {
-  const [events, setEvents] = useState<any[]>([]);
-  const [school, setSchool] = useState<any>(null);
-  const [ambassadors, setAmbassadors] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    events, 
+    school, 
+    ambassadors, 
+    loading, 
+    error, 
+    refreshEvents, 
+    refreshAll 
+  } = useSchoolData();
+
   const [academicYear] = useState('2024-2025');
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [showScheduleModal, setShowScheduleModal] = useState<any>(null);
@@ -31,30 +41,12 @@ const Events: React.FC = () => {
   const [studentStatuses, setStudentStatuses] = useState<Record<number, 'Present' | 'Absent'>>({});
 
   useEffect(() => {
-    fetchInitialData();
-  }, [academicYear]);
-
-  const fetchInitialData = async () => {
-    try {
-      setLoading(true);
-      const [eventsData, schoolData, ambassadorsData] = await Promise.all([
-        eventService.getAll(academicYear),
-        schoolService.getMySchool(),
-        ambassadorService.getAll()
-      ]);
-      setEvents(eventsData);
-      setSchool(schoolData);
-      setAmbassadors(ambassadorsData);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Initial fetch happens in the provider, but we can force refresh if needed
+    // refreshAll(academicYear);
+  }, [academicYear, refreshAll]);
 
   const fetchEvents = async () => {
-    const data = await eventService.getAll(academicYear);
-    setEvents(data);
+    await refreshEvents(academicYear);
   };
 
   const loadScript = (src: string) => {
@@ -68,7 +60,12 @@ const Events: React.FC = () => {
   };
 
   const handlePayGap = async () => {
-    if (!school) return;
+    if (!school) {
+      alert("Institutional data not loaded. Please refresh the page.");
+      return;
+    }
+    
+    // Sum up completed donations
     const collected = school.donations?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0;
     const goal = school.annualCreditGoal || 50000;
     const gap = Math.max(0, goal - collected);
@@ -81,14 +78,18 @@ const Events: React.FC = () => {
     setPaying(true);
     const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
     if (!res) {
-      alert("Razorpay SDK failed to load.");
+      alert("Razorpay SDK failed to load. Please check your internet connection.");
       setPaying(false);
       return;
     }
 
     try {
+      console.log(`Initiating payment for gap: ₹${gap}`);
       const order = await schoolService.createOrder(gap);
-      if (!order || !order.id) throw new Error("Order creation failed");
+      
+      if (!order || !order.id) {
+        throw new Error("Order creation failed on server. Please check console.");
+      }
 
       const options = {
         key: order.razorpay_key_id,
@@ -99,7 +100,6 @@ const Events: React.FC = () => {
         order_id: order.id,
         handler: async function (response: any) {
           try {
-             const { partnerService } = await import('../services/api');
              await partnerService.sponsor({
                 schoolId: school.id,
                 amount: gap,
@@ -110,21 +110,32 @@ const Events: React.FC = () => {
              alert('Payment Successful! Your annual program calendar is now unlocked.');
              window.location.reload();
           } catch (err) {
-            console.error(err);
-            alert('Failed to record payment. Please contact support.');
+            console.error('Failed to record sponsor payment:', err);
+            alert('Payment captured but failed to record. Please contact support with Payment ID: ' + response.razorpay_payment_id);
           } finally {
             setPaying(false);
           }
         },
+        prefill: {
+          name: school.principalName,
+          email: school.schoolEmail,
+          contact: school.principalContact
+        },
         theme: { color: "#db2777" },
-        modal: { ondismiss: () => setPaying(false) }
+        modal: { 
+          ondismiss: () => {
+            console.log('Payment modal closed');
+            setPaying(false);
+          }
+        }
       };
 
+      console.log('Opening Razorpay modal with options:', options);
       const paymentObject = new (window as any).Razorpay(options);
       paymentObject.open();
-    } catch (err) {
-      console.error(err);
-      alert('Failed to initiate payment.');
+    } catch (err: any) {
+      console.error('Razorpay initialization error:', err);
+      alert('Failed to initiate payment: ' + (err.message || 'Unknown error'));
       setPaying(false);
     }
   };
@@ -157,9 +168,29 @@ const Events: React.FC = () => {
     try {
       await eventService.update(ev.id, { completedAt: new Date().toISOString() });
       fetchEvents();
-      alert(`Event "${ev.title}" marked as completed. ${ev.ambassadorId ? 'Invoice sent to ambassador.' : ''}`);
+      alert(`Event "${ev.title}" marked as completed.`);
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Failed to mark as completed');
+    }
+  };
+
+  const handleFinalizeLogging = async (ev: any) => {
+    if (!ev.attendanceJson?.totalPresent) {
+      if (!confirm('Attendance has not been logged for this event. No student-level records will be synced. Send invoice anyway?')) {
+        return;
+      }
+    }
+    if (!ev.ambassadorId) {
+       alert('No ambassador assigned. Cannot generate an invoice.');
+       return;
+    }
+
+    try {
+      await eventService.update(ev.id, { loggingCompletedAt: new Date().toISOString() });
+      fetchEvents();
+      alert(`Logging for "${ev.title}" completed. Invoice sent to ${ev.ambassador.name}.`);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to finalize logging');
     }
   };
 
@@ -236,6 +267,13 @@ const Events: React.FC = () => {
 
   return (
     <div className="animate-fade-in">
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#991b1b', padding: '1rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <XCircle size={20} />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Credit Pool Header */}
       <div className="glass-card" style={{ background: 'white', padding: '2rem', marginBottom: '2.5rem', border: '1px solid #e2e8f0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -285,7 +323,16 @@ const Events: React.FC = () => {
           </div>
 
           {viewMode === 'calendar' ? (
-            <CalendarView events={events} onEventClick={(ev) => openAttendanceModal(ev)} />
+            <CalendarView 
+              events={events} 
+              onEventClick={(ev) => {
+                if (ev.loggingCompletedAt) {
+                  alert(`Logging for "${ev.title}" is already finalized. Attendance cannot be modified.`);
+                  return;
+                }
+                openAttendanceModal(ev);
+              }} 
+            />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -334,13 +381,90 @@ const Events: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                       {!ev.completedAt ? (
-                        <button onClick={() => handleMarkComplete(ev)} className="btn btn-sm" style={{ background: '#dcfce7', color: '#166534' }}>Complete</button>
+                        <button 
+                          onClick={() => handleMarkComplete(ev)} 
+                          className="btn btn-sm" 
+                          style={{ 
+                            background: '#dcfce7', 
+                            color: '#166534', 
+                            border: '1px solid #b7ebc6',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontWeight: 600
+                          }}
+                        >
+                          <CheckCircle size={14} /> Mark Complete
+                        </button>
                       ) : (
-                        <button onClick={() => openAttendanceModal(ev)} className="btn btn-sm btn-outline">Log Attendance</button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {!ev.loggingCompletedAt ? (
+                            <>
+                              <button 
+                                onClick={() => openAttendanceModal(ev)} 
+                                className="btn btn-sm btn-outline"
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontWeight: 600
+                                }}
+                              >
+                                <Users size={14} /> Log Attendance
+                              </button>
+                              <button 
+                                onClick={() => handleFinalizeLogging(ev)} 
+                                className="btn btn-sm" 
+                                style={{ 
+                                  background: 'var(--primary)', 
+                                  color: 'white',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontWeight: 600,
+                                  boxShadow: '0 4px 6px -1px rgba(219, 39, 119, 0.2)'
+                                }}
+                              >
+                                <ClipboardCheck size={14} /> Finalize logging
+                              </button>
+                            </>
+                          ) : (
+                            <span style={{ 
+                              fontSize: '0.85rem', 
+                              fontWeight: 700, 
+                              color: '#16a34a', 
+                              background: '#f0fdf4', 
+                              padding: '6px 16px', 
+                              borderRadius: '20px',
+                              border: '1px solid #dcfce7',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              <Check size={16} /> Logging Finalized
+                            </span>
+                          )}
+                        </div>
                       )}
-                      <button onClick={() => eventService.delete(ev.id).then(fetchEvents)} className="btn btn-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>Remove</button>
+                      
+                      <button 
+                        onClick={() => { if(confirm('Are you sure you want to remove this scheduled program?')) eventService.delete(ev.id).then(fetchEvents); }} 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: '#fff1f2', 
+                          color: '#e11d48', 
+                          border: '1px solid #fecdd3',
+                          padding: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Remove Event"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 ))

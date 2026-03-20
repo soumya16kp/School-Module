@@ -3,10 +3,10 @@
  * Supports: Twilio (free trial), Fast2SMS (₹50 free credit, India).
  * Set SMS_PROVIDER=twilio|fast2sms in .env. If unset, OTP is logged to console (dev).
  */
+import prisma from "../prismaClient";
 
 const provider = process.env.SMS_PROVIDER?.toLowerCase();
 const IS_DEV = process.env.NODE_ENV !== "production";
-const SMS_DISABLED = process.env.DISABLE_SMS === "true";
 
 async function sendViaTwilio(phone: string, message: string): Promise<void> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -50,30 +50,30 @@ async function sendViaFast2SMS(phone: string, message: string): Promise<void> {
   }
 }
 
+export async function sendSms(phone: string, message: string): Promise<void> {
+  if (provider === "twilio") {
+    await sendViaTwilio(phone, message);
+  } else if (provider === "fast2sms") {
+    await sendViaFast2SMS(phone, message);
+  } else if (IS_DEV) {
+    console.log(`[SMS] To ${phone}: ${message}`);
+  } else {
+     throw new Error("SMS not configured. Set SMS_PROVIDER=twilio or fast2sms in .env");
+  }
+
+  // Log to DB
+  await prisma.notificationDispatchLog.create({
+    data: {
+      eventType: message.includes("verification code") ? "OTP" : "GENERAL",
+      channel: "SMS",
+      recipient: phone,
+      status: "SENT",
+      metadata: { provider }
+    }
+  }).catch((e: any) => console.error("Failed to log SMS dispatch", e));
+}
+
 export async function sendOtpSms(phone: string, code: string): Promise<void> {
   const message = `Your WombTo18 verification code is ${code}. Valid for 5 minutes.`;
   await sendSms(phone, message);
-}
-
-export async function sendSms(phone: string, message: string): Promise<void> {
-  if (SMS_DISABLED) {
-    console.log(`[SMS DISABLED] To: ${phone} | Message: ${message}`);
-    return;
-  }
-
-  if (provider === "twilio") {
-    await sendViaTwilio(phone, message);
-    return;
-  }
-  if (provider === "fast2sms") {
-    await sendViaFast2SMS(phone, message);
-    return;
-  }
-  if (IS_DEV) {
-    console.log(`[SMS] To: ${phone} | Message: ${message}`);
-    return;
-  }
-  throw new Error(
-    "SMS not configured. Set SMS_PROVIDER=twilio or fast2sms and add credentials. See .env.example"
-  );
 }
