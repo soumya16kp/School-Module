@@ -12,6 +12,7 @@ import ParentDashboard from './pages/ParentDashboard';
 import PartnerDashboard from './pages/PartnerDashboard';
 import EmergencyAccess from './pages/EmergencyAccess';
 import CardView from './pages/CardView';
+import UDISEReport from './pages/UDISEReport';
 import { HealthProvider } from './context/HealthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SchoolDataProvider } from './context/SchoolDataContext';
@@ -63,6 +64,15 @@ function App() {
           } 
         />
         
+        <Route
+          path="/dashboard/udise-report"
+          element={
+            <PrivateRoute>
+              <UDISEReport />
+            </PrivateRoute>
+          }
+        />
+
         {/* Parent Portal Routes */}
         <Route path="/parent-login" element={<ParentLogin />} />
         <Route 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { certificationService } from '../services/api';
-import { Award, Plus, XCircle, Calendar, CheckCircle2 } from 'lucide-react';
+import { Award, Plus, XCircle, Calendar, CheckCircle2, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CERT_TYPES = ['UDISE_COMPLIANCE', 'FIRE_SAFETY_DRILL', 'ANNUAL_SAFETY', 'HEALTH_PROGRAM', 'OTHER'];
@@ -21,6 +22,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 const Certifications: React.FC = () => {
+  const navigate = useNavigate();
   const [certs, setCerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -84,9 +86,18 @@ const Certifications: React.FC = () => {
           </h2>
           <p style={{ color: 'var(--text-muted)' }}>UDISE compliance, safety drills, and program certifications.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Plus size={20} /> Add Certification
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => navigate('/dashboard/udise-report')}
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}
+          >
+            <FileText size={18} /> UDISE Report
+          </button>
+          <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Plus size={20} /> Add Certification
+          </button>
+        </div>
       </div>
 
       <div className="glass-card" style={{ marginBottom: '2rem', background: 'white', padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
