@@ -76,7 +76,17 @@ export class StaffService {
     const existing = await prisma.user.findFirst({ where: { id: userId, schoolId } });
     if (!existing) return null;
     return prisma.user.delete({
-      where: { id: userId }
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        assignedClass: true,
+        assignedSection: true,
+        createdAt: true,
+      },
     });
   }
 }

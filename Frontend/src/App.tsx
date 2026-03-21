@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import RegisterUser from './pages/RegisterUser';
 import RegisterSchool from './pages/RegisterSchool';
+import RegisterSchoolThankYou from './pages/RegisterSchoolThankYou';
 import Dashboard from './pages/Dashboard';
 import ChildProfile from './pages/ChildProfile';
 import ParentLogin from './pages/ParentLogin';
@@ -42,8 +43,9 @@ function App() {
             </PrivateRoute>
           } 
         />
-        <Route 
-          path="/dashboard" 
+        <Route path="/register-school/thank-you" element={<RegisterSchoolThankYou />} />
+        <Route
+          path="/dashboard"
           element={
             <PrivateRoute>
               <Dashboard />

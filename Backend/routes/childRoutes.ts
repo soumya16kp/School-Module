@@ -3,6 +3,7 @@ import prisma from "../prismaClient";
 import { ChildService } from "../services/childService";
 import { SchoolService } from "../services/schoolService";
 import { authenticateJWT, AuthRequest } from "../utils/authMiddleware";
+import { dispatchNotification } from "../services/notificationService";
 
 const router = Router();
 
@@ -18,6 +19,29 @@ router.post("/", authenticateJWT, async (req: AuthRequest, res: any) => {
       return res.status(404).json({ error: "School not found for this user" });
     }
     const child = await ChildService.createChild(req.body, school.id);
+
+    await dispatchNotification({
+      eventType: "CHILD_CHANGED",
+      recipients: [
+        child.fatherNumber
+          ? { phone: child.fatherNumber, email: child.emailId ?? undefined, label: "father" }
+          : undefined,
+        child.motherNumber
+          ? { phone: child.motherNumber, email: child.emailId ?? undefined, label: "mother" }
+          : undefined,
+        !child.fatherNumber && !child.motherNumber && child.emailId
+          ? { email: child.emailId, label: "parent" }
+          : undefined,
+      ].filter(Boolean) as any,
+      channels: ["sms", "email"],
+      data: {
+        childName: child.name,
+        changeType: "created",
+        schoolName: school.schoolName,
+      },
+      metadata: { childId: child.id, schoolId: school.id },
+    });
+
     res.status(201).json(child);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -109,6 +133,25 @@ router.patch("/:id/status", authenticateJWT, async (req: AuthRequest, res: any) 
     }
 
     const updated = await ChildService.updateChildStatus(childId, req.body.status);
+
+    await dispatchNotification({
+      eventType: "CHILD_CHANGED",
+      recipients: [
+        child?.fatherNumber ? { phone: child.fatherNumber, email: child.emailId ?? undefined, label: "father" } : undefined,
+        child?.motherNumber ? { phone: child.motherNumber, email: child.emailId ?? undefined, label: "mother" } : undefined,
+        !child?.fatherNumber && !child?.motherNumber && child?.emailId
+          ? { email: child.emailId, label: "parent" }
+          : undefined,
+      ].filter(Boolean) as any,
+      channels: ["sms", "email"],
+      data: {
+        childName: child?.name || "student",
+        changeType: `status changed to ${String(req.body.status)}`,
+        schoolName: school.schoolName,
+      },
+      metadata: { childId, schoolId: school.id },
+    });
+
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -131,6 +174,30 @@ router.put("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
     if (!child) return res.status(404).json({ error: "Child not found" });
 
     const updated = await ChildService.updateChild(childId, req.body);
+
+    const school = await prisma.school.findUnique({ where: { id: child.schoolId } });
+    await dispatchNotification({
+      eventType: "CHILD_CHANGED",
+      recipients: [
+        updated.fatherNumber
+          ? { phone: updated.fatherNumber, email: updated.emailId ?? undefined, label: "father" }
+          : undefined,
+        updated.motherNumber
+          ? { phone: updated.motherNumber, email: updated.emailId ?? undefined, label: "mother" }
+          : undefined,
+        !updated.fatherNumber && !updated.motherNumber && updated.emailId
+          ? { email: updated.emailId, label: "parent" }
+          : undefined,
+      ].filter(Boolean) as any,
+      channels: ["sms", "email"],
+      data: {
+        childName: updated.name,
+        changeType: "updated",
+        schoolName: school?.schoolName || "your school",
+      },
+      metadata: { childId, schoolId: child.schoolId },
+    });
+
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
