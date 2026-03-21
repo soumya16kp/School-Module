@@ -1,6 +1,58 @@
 import prisma from "../prismaClient";
+import crypto from "crypto";
+
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 export class PartnerService {
+  /** Get or create partner invite link. Partner must have role=PARTNER. */
+  static async getOrCreateInviteLink(partnerId: number) {
+    const user = await prisma.user.findUnique({
+      where: { id: partnerId, role: "PARTNER" },
+      select: { partnerInviteToken: true },
+    });
+    if (!user) throw new Error("Partner not found.");
+
+    let token = user.partnerInviteToken;
+    if (!token) {
+      token = crypto.randomBytes(16).toString("hex");
+      await prisma.user.update({
+        where: { id: partnerId },
+        data: { partnerInviteToken: token },
+      });
+    }
+
+    const url = `${FRONTEND_URL}/register-school?ref=${token}`;
+    return { url, token };
+  }
+
+  /** Validate ref token (public). Returns partner name if valid. */
+  static async validatePartnerRef(ref: string) {
+    if (!ref || typeof ref !== "string") return { valid: false, partnerName: null };
+    const user = await prisma.user.findUnique({
+      where: { partnerInviteToken: ref.trim(), role: "PARTNER" },
+      select: { name: true },
+    });
+    if (!user) return { valid: false, partnerName: null };
+    return { valid: true, partnerName: user.name };
+  }
+
+  /** Get schools onboarded by this partner (registered via their invite link). */
+  static async getOnboardedSchools(partnerId: number) {
+    return prisma.school.findMany({
+      where: { registeredViaPartnerId: partnerId },
+      select: {
+        id: true,
+        schoolName: true,
+        registrationNo: true,
+        city: true,
+        state: true,
+        schoolType: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   static async sponsor(partnerId: number, data: any) {
     const donation = await prisma.donation.create({
       data: {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Globe, Heart, TrendingUp, Gift, School, LogOut, ArrowRight, User, FileText, Download, CheckCircle2 } from 'lucide-react';
+import { Globe, Heart, TrendingUp, Gift, School, LogOut, ArrowRight, User, FileText, Download, CheckCircle2, Link2, Copy } from 'lucide-react';
 import { partnerService, authService } from '../services/api';
 import PartnerSchools from '../components/PartnerSchools';
 import DonationHistory from '../components/DonationHistory';
@@ -15,6 +15,10 @@ const PartnerDashboard: React.FC = () => {
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [onboardedSchools, setOnboardedSchools] = useState<any[]>([]);
+  const [onboardedLoading, setOnboardedLoading] = useState(false);
 
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -45,6 +49,33 @@ const PartnerDashboard: React.FC = () => {
         .finally(() => setInvoicesLoading(false));
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (user?.role === 'PARTNER' && !inviteUrl && !inviteLoading) {
+      setInviteLoading(true);
+      partnerService.getInviteLink()
+        .then((r) => setInviteUrl(r.url))
+        .catch(() => {})
+        .finally(() => setInviteLoading(false));
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
+    if (user?.role === 'PARTNER') {
+      setOnboardedLoading(true);
+      partnerService.getOnboardedSchools()
+        .then((data) => setOnboardedSchools(data))
+        .catch(() => {})
+        .finally(() => setOnboardedLoading(false));
+    }
+  }, [user?.role]);
+
+  const copyInviteLink = () => {
+    if (inviteUrl) {
+      navigator.clipboard.writeText(inviteUrl);
+      alert('Invite link copied to clipboard! Share it with schools to onboard them.');
+    }
+  };
 
   const handleDownloadInvoice = async (inv: any) => {
     try {
@@ -341,6 +372,72 @@ const PartnerDashboard: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Invite Link & Onboarded Schools */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2.5rem' }}>
+              <motion.div
+                whileHover={{ y: -2 }}
+                style={{ background: 'white', borderRadius: '20px', padding: '2rem', border: '1px solid #f1f5f9', position: 'relative', overflow: 'hidden' }}
+              >
+                <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, transparent 100%)', borderRadius: '0 0 0 100%' }}></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '1rem' }}>
+                  <div style={{ background: '#dcfce7', padding: '12px', borderRadius: '14px' }}>
+                    <Link2 size={24} color="#16a34a" />
+                  </div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Your Invite Link</h3>
+                </div>
+                <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem', lineHeight: 1.5 }}>
+                  Share this link with schools. When they register using it, they&apos;ll appear in your onboarded schools.
+                </p>
+                {inviteLoading ? (
+                  <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '12px', color: '#64748b' }}>Loading link...</div>
+                ) : inviteUrl ? (
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input readOnly value={inviteUrl} style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc' }} />
+                    <button onClick={copyInviteLink} style={{ padding: '0.75rem 1.25rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Copy size={18} /> Copy
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ padding: '0.75rem', background: '#fef2f2', borderRadius: '12px', color: '#dc2626', fontSize: '0.9rem' }}>Could not load invite link.</div>
+                )}
+              </motion.div>
+              <motion.div
+                whileHover={{ y: -2 }}
+                style={{ background: 'white', borderRadius: '20px', padding: '2rem', border: '1px solid #f1f5f9' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '1rem' }}>
+                  <div style={{ background: 'var(--primary-light)', padding: '12px', borderRadius: '14px' }}>
+                    <School size={24} color="var(--primary)" />
+                  </div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Schools You&apos;ve Onboarded</h3>
+                </div>
+                <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem', lineHeight: 1.5 }}>
+                  Schools that registered through your invite link appear here.
+                </p>
+                {onboardedLoading ? (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>Loading...</div>
+                ) : onboardedSchools.length === 0 ? (
+                  <div style={{ padding: '1.5rem', textAlign: 'center', background: '#f8fafc', borderRadius: '14px', border: '2px dashed #e2e8f0' }}>
+                    <School size={36} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                    <p style={{ margin: 0, color: '#64748b', fontWeight: 600 }}>No schools yet</p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>Share your invite link to onboard schools.</p>
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {onboardedSchools.map((s) => (
+                      <div key={s.id} style={{ padding: '0.75rem 1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#1e293b' }}>{s.schoolName}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{s.city}, {s.state} &bull; {s.registrationNo}</div>
+                        </div>
+                        <CheckCircle2 size={20} color="#16a34a" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </div>
 
             {/* Quick Action Cards */}
             <h2 style={{ fontSize: '1.25rem', marginBottom: '1.25rem' }}>Quick Actions</h2>

@@ -314,6 +314,21 @@ export const cardService = {
 };
 
 export const partnerService = {
+  /** Public: validate partner invite ref (no auth required) */
+  validatePartnerRef: async (ref: string) => {
+    const response = await api.get('/partner/validate-ref', { params: { ref } });
+    return response.data as { valid: boolean; partnerName: string | null };
+  },
+  /** Partner only: get or create invite link */
+  getInviteLink: async () => {
+    const response = await api.get('/partner/invite-link');
+    return response.data as { url: string; token: string };
+  },
+  /** Partner only: schools onboarded via their invite link */
+  getOnboardedSchools: async () => {
+    const response = await api.get('/partner/onboarded-schools');
+    return response.data as { id: number; schoolName: string; registrationNo: string; city: string; state: string; schoolType: string; createdAt: string }[];
+  },
   getDonations: async () => {
     const response = await api.get('/partner/donations');
     return response.data;

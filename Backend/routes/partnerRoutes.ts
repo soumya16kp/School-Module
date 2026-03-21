@@ -79,6 +79,41 @@ router.get("/schools/:id/stats", authenticateJWT, async (req: Request, res: Resp
   }
 });
 
+// GET /api/partner/validate-ref?ref=TOKEN — PUBLIC, validate partner invite token
+router.get("/validate-ref", async (req: Request, res: Response) => {
+  try {
+    const ref = req.query.ref as string;
+    const result = await PartnerService.validatePartnerRef(ref || "");
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// GET /api/partner/invite-link — partner only, get or create invite link
+router.get("/invite-link", authenticateJWT, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    if (req.user.role !== "PARTNER") return res.status(403).json({ message: "Only partners can generate invite links." });
+    const result = await PartnerService.getOrCreateInviteLink(req.user.id);
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// GET /api/partner/onboarded-schools — partner only, schools registered via their link
+router.get("/onboarded-schools", authenticateJWT, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    if (req.user.role !== "PARTNER") return res.status(403).json({ message: "Only partners can view onboarded schools." });
+    const schools = await PartnerService.getOnboardedSchools(req.user.id);
+    res.json(schools);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // GET /partner/invoices — list completed events for schools this partner donated to
 router.get("/invoices", authenticateJWT, async (req: AuthRequest, res) => {
   try {

@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { schoolService } from '../services/api';
-import { School, User, MapPin, FileText, CheckCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { schoolService, partnerService } from '../services/api';
+import { School, User, MapPin, FileText, CheckCircle, Link2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getAllStateNames, getDistrictsByStateName, getStateByName } from '../data/state-district-data';
+
+const PARTNER_REF_KEY = 'register_school_partner_ref';
 
 const STATE_CODE_MAP: Record<string, string> = {
   "Andaman And Nicobar Islands": "AN", "Andhra Pradesh": "AP",
@@ -55,8 +57,23 @@ const RegisterSchool: React.FC = () => {
   });
   const [districts, setDistricts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [partnerRef, setPartnerRef] = useState<string | null>(null);
+  const [partnerName, setPartnerName] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const stateNames = useMemo(() => getAllStateNames(), []);
+
+  // Read partner ref from URL or localStorage; validate and show partner name
+  useEffect(() => {
+    const refFromUrl = searchParams.get('ref');
+    const ref = refFromUrl || localStorage.getItem(PARTNER_REF_KEY);
+    if (!ref) return;
+    if (refFromUrl) localStorage.setItem(PARTNER_REF_KEY, ref);
+    setPartnerRef(ref);
+    partnerService.validatePartnerRef(ref)
+      .then((r) => { if (r.valid && r.partnerName) setPartnerName(r.partnerName); })
+      .catch(() => {});
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -105,10 +122,13 @@ const RegisterSchool: React.FC = () => {
             // 4. Complete registration on backend
             const school = await schoolService.register({
               ...formData,
+              channel: partnerRef ? 'CHANNEL_PARTNER' : formData.channel,
               paymentId: response.razorpay_payment_id,
               orderId: response.razorpay_order_id,
-              signature: response.razorpay_signature
+              signature: response.razorpay_signature,
+              ...(partnerRef && { partnerRef }),
             });
+            localStorage.removeItem(PARTNER_REF_KEY);
             const params = new URLSearchParams({
               regNo: school.registrationNo ?? '',
               school: school.schoolName ?? formData.schoolName,
@@ -166,6 +186,14 @@ const RegisterSchool: React.FC = () => {
         <div style={{ marginBottom: '2.5rem' }}>
           <h1 style={{ fontSize: '2.25rem', marginBottom: '0.5rem' }}>School Registration</h1>
           <p style={{ color: 'var(--text-muted)' }}>Provide details to register your institution in the central database.</p>
+          {partnerName && (
+            <div style={{ marginTop: '1rem', padding: '1rem 1.25rem', background: 'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)', borderRadius: '14px', border: '1px solid #fbcfe8', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Link2 size={22} color="var(--primary)" />
+              <span style={{ fontWeight: 600, color: '#831843' }}>
+                Registering through <strong>{partnerName}</strong> (commission-based partnership)
+              </span>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -174,14 +202,16 @@ const RegisterSchool: React.FC = () => {
             <label>Registration Type</label>
             <select
               name="channel"
-              value={formData.channel}
+              value={partnerRef ? 'CHANNEL_PARTNER' : formData.channel}
               onChange={handleChange}
               required
-              style={{ padding: '0.75rem', fontSize: '0.9rem', borderRadius: '10px', width: '100%' }}
+              disabled={!!partnerRef}
+              style={{ padding: '0.75rem', fontSize: '0.9rem', borderRadius: '10px', width: '100%', opacity: partnerRef ? 0.9 : 1 }}
             >
-              <option value="DIRECT">Direct Onboarding</option>
-              <option value="CHANNEL_PARTNER">Via Channel Partner</option>
+              <option value="DIRECT">Solo / Direct Onboarding</option>
+              <option value="CHANNEL_PARTNER">Via Partner (invite link)</option>
             </select>
+            {partnerRef && <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>You arrived via a partner invite link.</p>}
           </div>
           <div className="grid-2">
             <div className="form-group">

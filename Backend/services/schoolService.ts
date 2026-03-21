@@ -21,6 +21,17 @@ export class SchoolService {
     }
 
     const studentStrength = parseInt(data.studentStrength);
+
+    // Resolve partner if ref provided (commission-based onboarding)
+    let registeredViaPartnerId: number | undefined;
+    if (data.partnerRef && typeof data.partnerRef === "string") {
+      const partner = await prisma.user.findUnique({
+        where: { partnerInviteToken: data.partnerRef.trim(), role: "PARTNER" },
+        select: { id: true },
+      });
+      if (partner) registeredViaPartnerId = partner.id;
+    }
+
     try {
       const school = await prisma.school.create({
         data: {
@@ -47,6 +58,7 @@ export class SchoolService {
           academicYear: data.academicYear || "2024-2025",
           channel: data.channel || "DIRECT",
           annualCreditGoal: 50000, // Matching the schema default or higher
+          registeredViaPartnerId: registeredViaPartnerId ?? undefined,
           users: {
             connect: { id: Number(userId) }
           }
