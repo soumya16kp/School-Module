@@ -14,6 +14,7 @@ export class EventService {
     attendanceJson?: object;
     ambassadorId?: number;
     goalAmount?: number;
+    images?: any;
   }) {
     const evt = await prisma.event.create({
       data: {
@@ -27,6 +28,7 @@ export class EventService {
         attendanceJson: data.attendanceJson ?? undefined,
         ambassadorId: data.ambassadorId,
         goalAmount: data.goalAmount ?? 0,
+        images: data.images,
       },
       include: {
         ambassador: true,
@@ -81,6 +83,7 @@ export class EventService {
       ambassadorId: number | null;
       goalAmount: number;
       loggingCompletedAt?: string | Date;
+      images?: any;
     }>
   ) {
     const result = await prisma.event.updateMany({
@@ -96,6 +99,7 @@ export class EventService {
         ...(data.ambassadorId !== undefined && { ambassadorId: data.ambassadorId }),
         ...(data.goalAmount !== undefined && { goalAmount: data.goalAmount }),
         ...(data.loggingCompletedAt !== undefined && { loggingCompletedAt: data.loggingCompletedAt }),
+        ...(data.images !== undefined && { images: data.images }),
       },
     });
 
