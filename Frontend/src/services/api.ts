@@ -69,6 +69,14 @@ export const schoolService = {
     });
     return response.data; // { url: '...' }
   },
+  uploadImage: async (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post('/schools/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data; // { url: '...' }
+  },
   getDonations: async () => {
     const response = await api.get('/schools/my-donations');
     return response.data; // { id, annualCreditGoal, donations: [...] }

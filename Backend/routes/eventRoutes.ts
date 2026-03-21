@@ -36,7 +36,7 @@ router.post("/", async (req: AuthRequest, res) => {
     if (!school) {
       return res.status(404).json({ message: "School not found" });
     }
-    const { type, title, description, academicYear, scheduledAt, completedAt, attendanceJson, ambassadorId, goalAmount } = req.body;
+    const { type, title, description, academicYear, scheduledAt, completedAt, attendanceJson, ambassadorId, goalAmount, images } = req.body;
     if (!type || !title || !academicYear) {
       return res.status(400).json({ message: "type, title, and academicYear are required" });
     }
@@ -51,6 +51,7 @@ router.post("/", async (req: AuthRequest, res) => {
       attendanceJson,
       ambassadorId,
       goalAmount: goalAmount ? parseFloat(goalAmount) : 0,
+      images,
     });
     res.status(201).json(event);
   } catch (err: any) {
@@ -96,7 +97,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid event id" });
     }
-    const { type, title, description, academicYear, scheduledAt, completedAt, loggingCompletedAt, attendanceJson, ambassadorId, goalAmount } = req.body;
+    const { type, title, description, academicYear, scheduledAt, completedAt, loggingCompletedAt, attendanceJson, ambassadorId, goalAmount, images } = req.body;
     const updatePayload: Record<string, unknown> = {
       type,
       title,
@@ -106,6 +107,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
       attendanceJson,
       ambassadorId,
       goalAmount: goalAmount != null ? parseFloat(goalAmount) : undefined,
+      images,
     };
     if (completedAt !== undefined) {
       updatePayload.completedAt = completedAt == null ? null : new Date(completedAt);

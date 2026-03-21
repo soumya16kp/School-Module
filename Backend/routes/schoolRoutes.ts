@@ -30,6 +30,12 @@ router.post("/upload-avatar", authenticateJWT, upload.single("avatar"), (req: Au
   res.json({ url });
 });
 
+router.post("/upload-image", authenticateJWT, upload.single("image"), (req: AuthRequest, res) => {
+  if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+  const url = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+  res.json({ url });
+});
+
 router.post("/register", authenticateJWT, async (req: AuthRequest, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });

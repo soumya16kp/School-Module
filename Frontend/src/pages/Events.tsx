@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { eventService, schoolService, partnerService } from '../services/api';
+import { eventService, schoolService, ambassadorService } from '../services/api';
 import { useSchoolData } from '../context/SchoolDataContext';
-import { XCircle, CheckCircle2, Info, LayoutList, Calendar as CalendarIconUI, ShieldCheck, Search, Users, Lock, CheckCircle, ClipboardCheck, Trash2, Check } from 'lucide-react';
+import { 
+  XCircle, Info, LayoutList, Calendar as CalendarIconUI, 
+  ShieldCheck, Search, Users, Lock, CheckCircle, ClipboardCheck, 
+  Trash2, Image as ImageIcon, HeartPulse, Brain, Salad, 
+  Flame, Plus, Syringe, Sparkles, MapPin, Clock, ChevronDown, ChevronUp
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalendarView from '../components/CalendarView';
+import Carousel from '../components/Carousel';
 
 const PREDEFINED_PROGRAMS = [
   { type: 'GENERAL_CHECKUP', title: 'Annual Health Check-up', description: 'Comprehensive health screening for all students.' },
@@ -15,40 +21,78 @@ const PREDEFINED_PROGRAMS = [
   { type: 'IMMUNIZATION_DEWORMING', title: 'Immunization & Deworming', description: 'Comprehensive vaccination and parasite prevention outreach.' }
 ];
 
+const getProgramIcon = (type: string) => {
+  switch (type) {
+    case 'GENERAL_CHECKUP': return <HeartPulse size={20} />;
+    case 'MENTAL_WELLNESS': return <Brain size={20} />;
+    case 'NUTRITION_SESSION': return <Salad size={20} />;
+    case 'FIRE_DRILL': return <Flame size={20} />;
+    case 'CPR_FIRST_AID_TRAINING': return <ShieldCheck size={20} />;
+    case 'HYGIENE_WELLNESS': return <Sparkles size={20} />;
+    case 'IMMUNIZATION_DEWORMING': return <Syringe size={20} />;
+    default: return <CalendarIconUI size={20} />;
+  }
+};
+
 const Events: React.FC = () => {
   const { 
     events, 
     school, 
-    ambassadors, 
-    loading, 
-    error, 
-    refreshEvents, 
+    loading,
+    refreshEvents,
     refreshAll 
   } = useSchoolData();
 
   const [academicYear] = useState('2024-2025');
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [showScheduleModal, setShowScheduleModal] = useState<any>(null);
-  const [selectedAmbassadorId, setSelectedAmbassadorId] = useState<string>('');
-  const [attendanceModalEvent, setAttendanceModalEvent] = useState<any>(null);
-  const [attendanceForm, setAttendanceForm] = useState({ totalPresent: '', totalExpected: '', notes: '' });
-  const [paying, setPaying] = useState(false);
+  const [selectedAmbassadorId, setSelectedAmbassadorId] = useState('');
+  const [ambassadors, setAmbassadors] = useState<any[]>([]);
 
-  const [children, setChildren] = useState<any[]>([]);
+  // Attendance states
+  const [attendanceModalEvent, setAttendanceModalEvent] = useState<any>(null);
   const [attSearch, setAttSearch] = useState('');
   const [attFilterClass, setAttFilterClass] = useState('');
   const [attFilterSection, setAttFilterSection] = useState('');
-  const [studentStatuses, setStudentStatuses] = useState<Record<number, 'Present' | 'Absent'>>({});
+  const [studentStatuses, setStudentStatuses] = useState<Record<string, string>>({});
+  const [attendanceForm, setAttendanceForm] = useState({ notes: '' });
+
+  const [uploadingForEvent, setUploadingForEvent] = useState<number | null>(null);
+  const [listSearch, setListSearch] = useState('');
+  const [listFilter, setListFilter] = useState<'all' | 'upcoming' | 'ready' | 'finalized'>('all');
+  const [expandedEvents, setExpandedEvents] = useState<Record<number, boolean>>({});
+
+  const userStr = localStorage.getItem('school_user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const isManagement = user?.role === 'SCHOOL_ADMIN' || user?.role === 'PRINCIPAL';
 
   useEffect(() => {
-    // Initial fetch happens in the provider, but we can force refresh if needed
-    // refreshAll(academicYear);
-  }, [academicYear, refreshAll]);
+    ambassadorService.getAll().then(setAmbassadors);
+  }, []);
 
-  const fetchEvents = async () => {
-    await refreshEvents(academicYear);
+  const totalCollected = school?.donations?.reduce((sum: number, d: any) => sum + Number(d.amount || 0), 0) || 0;
+  const creditGoal = school?.annualCreditGoal || 50000;
+  const isUnlocked = totalCollected >= creditGoal;
+
+  const handleAssignProgram = async (prog: any, scheduledAt: string) => {
+    try {
+      await eventService.create({
+        type: prog.type,
+        title: prog.title,
+        description: prog.description,
+        academicYear,
+        scheduledAt: new Date(scheduledAt).toISOString(),
+        ambassadorId: selectedAmbassadorId ? parseInt(selectedAmbassadorId) : undefined
+      });
+      setShowScheduleModal(null);
+      setSelectedAmbassadorId('');
+      refreshEvents(academicYear);
+    } catch (error) {
+      alert('Error scheduling program');
+    }
   };
 
+  const [paying, setPaying] = useState(false);
   const loadScript = (src: string) => {
     return new Promise((resolve) => {
       const script = document.createElement("script");
@@ -60,61 +104,31 @@ const Events: React.FC = () => {
   };
 
   const handlePayGap = async () => {
-    if (!school) {
-      alert("Institutional data not loaded. Please refresh the page.");
-      return;
-    }
-    
-    // Sum up completed donations
-    const collected = school.donations?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0;
-    const goal = school.annualCreditGoal || 50000;
-    const gap = Math.max(0, goal - collected);
-
-    if (gap <= 0) {
-      alert("Credit pool is already fully funded!");
-      return;
-    }
+    if (!school) return;
+    const gap = Math.max(0, creditGoal - totalCollected);
+    if (gap <= 0) return;
 
     setPaying(true);
     const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
     if (!res) {
-      alert("Razorpay SDK failed to load. Please check your internet connection.");
+      alert("Razorpay SDK failed to load");
       setPaying(false);
       return;
     }
 
     try {
-      console.log(`Initiating payment for gap: ₹${gap}`);
       const order = await schoolService.createOrder(gap);
-      
-      if (!order || !order.id) {
-        throw new Error("Order creation failed on server. Please check console.");
-      }
-
       const options = {
         key: order.razorpay_key_id,
         amount: order.amount,
         currency: order.currency,
         name: "EduCentral",
-        description: "Annual Health & Safety Program Unlock",
+        description: "School Program Unlock",
         order_id: order.id,
-        handler: async function (response: any) {
-          try {
-             await partnerService.sponsor({
-                schoolId: school.id,
-                amount: gap,
-                type: 'GENERAL',
-                description: `Institution credit pool bridge payment`,
-                paymentId: response.razorpay_payment_id
-             });
-             alert('Payment Successful! Your annual program calendar is now unlocked.');
-             window.location.reload();
-          } catch (err) {
-            console.error('Failed to record sponsor payment:', err);
-            alert('Payment captured but failed to record. Please contact support with Payment ID: ' + response.razorpay_payment_id);
-          } finally {
-            setPaying(false);
-          }
+        handler: async function () {
+          alert('Payment Successful! Refreshing...');
+          refreshAll(academicYear);
+          setPaying(false);
         },
         prefill: {
           name: school.principalName,
@@ -122,416 +136,593 @@ const Events: React.FC = () => {
           contact: school.principalContact
         },
         theme: { color: "#db2777" },
-        modal: { 
-          ondismiss: () => {
-            console.log('Payment modal closed');
-            setPaying(false);
-          }
-        }
+        modal: { ondismiss: () => setPaying(false) }
       };
-
-      console.log('Opening Razorpay modal with options:', options);
       const paymentObject = new (window as any).Razorpay(options);
       paymentObject.open();
-    } catch (err: any) {
-      console.error('Razorpay initialization error:', err);
-      alert('Failed to initiate payment: ' + (err.message || 'Unknown error'));
+    } catch (err) {
+      console.error(err);
+      alert('Failed to initiate payment');
       setPaying(false);
     }
   };
 
-  const handleAssignProgram = async (program: any, date: string) => {
-    try {
-      await eventService.create({
-        type: program.type,
-        title: program.title,
-        description: program.description,
-        academicYear,
-        scheduledAt: new Date(date).toISOString(),
-        ambassadorId: selectedAmbassadorId ? parseInt(selectedAmbassadorId) : undefined
-      });
-      setShowScheduleModal(null);
-      setSelectedAmbassadorId('');
-      fetchEvents();
-      alert(`Program "${program.title}" assigned successfully.`);
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to assign program');
-    }
-  };
-
   const handleMarkComplete = async (ev: any) => {
-    if (!ev.ambassadorId) {
-      if (!confirm('No ambassador is assigned to this event. An invoice will NOT be generated. Continue anyway?')) {
-        return;
-      }
-    }
+    if (!confirm(`Mark "${ev.title}" as complete?`)) return;
     try {
       await eventService.update(ev.id, { completedAt: new Date().toISOString() });
-      fetchEvents();
-      alert(`Event "${ev.title}" marked as completed.`);
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to mark as completed');
+      refreshEvents(academicYear);
+    } catch (error) {
+      alert('Error marking complete');
     }
   };
 
-  const handleFinalizeLogging = async (ev: any) => {
-    if (!ev.attendanceJson?.totalPresent) {
-      if (!confirm('Attendance has not been logged for this event. No student-level records will be synced. Send invoice anyway?')) {
-        return;
-      }
-    }
-    if (!ev.ambassadorId) {
-       alert('No ambassador assigned. Cannot generate an invoice.');
-       return;
-    }
-
+  const handleImageUpload = async (eventId: number, file: File) => {
+    setUploadingForEvent(eventId);
     try {
-      await eventService.update(ev.id, { loggingCompletedAt: new Date().toISOString() });
-      fetchEvents();
-      alert(`Logging for "${ev.title}" completed. Invoice sent to ${ev.ambassador.name}.`);
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to finalize logging');
+      const { url } = await schoolService.uploadImage(file);
+      const ev = events.find(e => e.id === eventId);
+      const currentImages = Array.isArray(ev?.images) ? ev.images : [];
+      await eventService.update(eventId, { images: [...currentImages, url] });
+      refreshEvents(academicYear);
+    } catch (error) {
+       alert('Error uploading image');
+    } finally {
+      setUploadingForEvent(null);
     }
   };
 
-  const openAttendanceModal = async (ev: any) => {
-    const att = ev.attendanceJson as any;
+  const openAttendanceModal = (ev: any) => {
     setAttendanceModalEvent(ev);
-    setAttendanceForm({
-      totalPresent: att?.totalPresent?.toString() ?? '',
-      totalExpected: att?.totalExpected?.toString() ?? '',
-      notes: att?.notes ?? '',
-    });
-    setStudentStatuses(att?.studentStatuses ?? {});
-    
-    // Load children if not loaded
-    if (children.length === 0) {
-      try {
-        const { childService } = await import('../services/api');
-        const data = await childService.getAll();
-        setChildren(data);
-      } catch (err) {
-        console.error('Failed to load children', err);
-      }
-    }
+    const existing = ev.attendanceJson?.studentStatuses || {};
+    setStudentStatuses(existing); 
+    setAttendanceForm({ notes: ev.attendanceJson?.notes || '' });
   };
 
-  const handleAttendanceSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const toggleStudentStatus = (childId: number) => {
+    setStudentStatuses(prev => ({
+      ...prev,
+      [childId]: prev[childId] === 'Absent' ? 'Present' : 'Absent'
+    }));
+  };
+
+  const handleAttendanceSubmit = async () => {
     if (!attendanceModalEvent) return;
     
-    // Default un-marked students to Present or keep as is?
-    // Let's assume unmarked are Present if not set.
-    const presentCount = children.filter(c => studentStatuses[c.id] !== 'Absent').length;
-    
+    const studentsList = school?.children || [];
+    const presentCount = studentsList.filter((c: any) => studentStatuses[c.id] !== 'Absent').length;
+
     try {
       await eventService.update(attendanceModalEvent.id, {
         attendanceJson: {
           totalPresent: presentCount,
-          totalExpected: children.length,
-          notes: attendanceForm.notes.trim() || undefined,
+          totalExpected: studentsList.length,
+          notes: attendanceForm.notes,
           studentStatuses
-        },
+        }
       });
       setAttendanceModalEvent(null);
-      fetchEvents();
-    } catch (err: any) {
-      alert('Failed to save attendance');
+      refreshEvents(academicYear);
+    } catch (error) {
+      alert('Error saving attendance');
     }
   };
 
-  const toggleStudentStatus = (id: number) => {
-    setStudentStatuses(prev => ({
-      ...prev,
-      [id]: prev[id] === 'Absent' ? 'Present' : 'Absent'
-    }));
+  const toggleEventExpansion = (id: number) => {
+    setExpandedEvents(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const uniqueClasses = Array.from(new Set(children.map((c: any) => c.class))).sort((a, b) => a - b);
-  const uniqueSections = Array.from(new Set(children.map((c: any) => c.section))).sort();
+  const filteredEvents = events.filter(ev => {
+    const matchesSearch = ev.title.toLowerCase().includes(listSearch.toLowerCase()) || 
+                          ev.type.toLowerCase().includes(listSearch.toLowerCase());
+    
+    let matchesStatus = true;
+    if (listFilter === 'upcoming') matchesStatus = !ev.completedAt;
+    else if (listFilter === 'ready') matchesStatus = !!ev.completedAt && !ev.loggingCompletedAt;
+    else if (listFilter === 'finalized') matchesStatus = !!ev.loggingCompletedAt;
 
-  const filteredChildren = children.filter(c => {
-    const s = attSearch.toLowerCase();
-    const matchSearch = !s || c.name.toLowerCase().includes(s) || c.registrationNo.toLowerCase().includes(s);
-    const matchClass = !attFilterClass || String(c.class) === attFilterClass;
-    const matchSection = !attFilterSection || c.section === attFilterSection;
-    return matchSearch && matchClass && matchSection;
+    return matchesSearch && matchesStatus;
   });
 
-  const totalCollected = school?.donations?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0;
-  const creditGoal = school?.annualCreditGoal || 50000;
-  const isUnlocked = totalCollected >= creditGoal;
-  const progressPercent = Math.min(100, (totalCollected / creditGoal) * 100);
+  const handleFinalizeLogging = async (ev: any) => {
+    if (!confirm('This will finalize all attendance, metrics and lock further changes. Proceed?')) return;
+    try {
+      await eventService.update(ev.id, { loggingCompletedAt: new Date().toISOString() });
+      refreshEvents(academicYear);
+    } catch (error) {
+      alert('Error finalizing logs');
+    }
+  };
 
-  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--primary)' }}>Loading Programs...</div>;
+  const uniqueClasses = Array.from(new Set(school?.children?.map((c: any) => c.class).filter((v: any) => v !== undefined && v !== null) || [])).sort();
+  const uniqueSections = Array.from(new Set(school?.children?.map((c: any) => c.section).filter(Boolean) || [])).sort();
+
+  const filteredChildren = (school?.children || []).filter((child: any) => {
+    const matchesSearch = child.name.toLowerCase().includes(attSearch.toLowerCase()) || 
+                          child.registrationNo.toLowerCase().includes(attSearch.toLowerCase());
+    const matchesClass = !attFilterClass || String(child.class) === attFilterClass;
+    const matchesSection = !attFilterSection || child.section === attFilterSection;
+    return matchesSearch && matchesClass && matchesSection;
+  });
+
+  if (loading) return <div className="page-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
 
   return (
-    <div className="animate-fade-in">
-      {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#991b1b', padding: '1rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <XCircle size={20} />
-          <span>{error}</span>
+    <div className="page-container">
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.2; }
+          50% { transform: scale(1.1); opacity: 0.1; }
+          100% { transform: scale(1); opacity: 0.2; }
+        }
+      `}</style>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
+        <div>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Annual Programs</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Plan and manage your institution's health & safety calendar for {academicYear}.</p>
         </div>
-      )}
+        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          <div style={{ 
+            background: isUnlocked ? '#f0fdf4' : '#fff7ed', 
+            padding: '12px 24px', 
+            borderRadius: '20px', 
+            border: `1px solid ${isUnlocked ? '#dcfce7' : '#ffedd5'}`,
+            width: '320px',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'flex-end' }}>
+              <div style={{ fontSize: '0.7rem', color: isUnlocked ? '#166534' : '#9a3412', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Annual Credit Pool
+              </div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: isUnlocked ? '#15803d' : '#c2410c' }}>
+                {Math.round((totalCollected / creditGoal) * 100)}%
+              </div>
+            </div>
+            <div style={{ width: '100%', height: '8px', background: isUnlocked ? '#dcfce7' : '#ffedd5', borderRadius: '10px', overflow: 'hidden', marginBottom: '6px' }}>
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(100, (totalCollected / creditGoal) * 100)}%` }}
+                style={{ height: '100%', background: isUnlocked ? '#22c55e' : 'linear-gradient(90deg, #f97316, #ea580c)', borderRadius: '10px' }}
+              />
+            </div>
+            <div style={{ fontSize: '0.8rem', color: isUnlocked ? '#166534' : '#9a3412', fontWeight: 600, textAlign: 'center' }}>
+              ₹{totalCollected.toLocaleString()} / ₹{creditGoal.toLocaleString()}
+            </div>
+          </div>
 
-      {/* Credit Pool Header */}
-      <div className="glass-card" style={{ background: 'white', padding: '2rem', marginBottom: '2.5rem', border: '1px solid #e2e8f0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '4px' }}>Annual Program Credit Pool</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Universal funding pool from sponsors and institutional contributions.</p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>₹{totalCollected.toLocaleString()}</span>
-            <span style={{ color: 'var(--text-muted)' }}> / ₹{creditGoal.toLocaleString()}</span>
-          </div>
-        </div>
-        
-        <div style={{ width: '100%', height: '14px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercent}%` }}
-            style={{ width: `${progressPercent}%`, height: '100%', background: isUnlocked ? '#10b981' : 'linear-gradient(90deg, var(--primary) 0%, #ec4899 100%)', borderRadius: '10px' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isUnlocked ? '#166534' : '#991b1b', fontSize: '0.9rem', fontWeight: 600 }}>
-             {isUnlocked ? <CheckCircle2 size={18} /> : <Info size={18} />}
-             {isUnlocked ? 'Program Access Unlocked' : `Bridge the ₹${(creditGoal - totalCollected).toLocaleString()} gap to unlock scheduling`}
-          </div>
-          {!isUnlocked && (
-            <button onClick={handlePayGap} disabled={paying} className="btn btn-primary" style={{ padding: '10px 24px', fontSize: '0.95rem' }}>
-              {paying ? 'Processing...' : 'Pay Gap & Unlock Calendar'}
+          <div style={{ 
+            background: 'white', 
+            padding: '6px', 
+            borderRadius: '16px', 
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+            display: 'flex', 
+            gap: '4px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <button 
+              onClick={() => setViewMode('list')}
+              style={{ 
+                padding: '10px 24px', 
+                borderRadius: '12px', 
+                border: 'none', 
+                background: viewMode === 'list' ? 'var(--primary)' : 'transparent',
+                color: viewMode === 'list' ? 'white' : 'var(--text-muted)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              <LayoutList size={18} /> List View
             </button>
-          )}
+            <button 
+              onClick={() => setViewMode('calendar')}
+              style={{ 
+                padding: '10px 24px', 
+                borderRadius: '12px', 
+                border: 'none', 
+                background: viewMode === 'calendar' ? 'var(--primary)' : 'transparent',
+                color: viewMode === 'calendar' ? 'white' : 'var(--text-muted)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              <CalendarIconUI size={18} /> Calendar
+            </button>
+          </div>
         </div>
       </div>
 
       {isUnlocked ? (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '1.75rem' }}>Central Program Calendar</h3>
-            <div style={{ display: 'flex', background: 'white', borderRadius: '10px', padding: '4px', border: '1px solid var(--border)' }}>
-              <button onClick={() => setViewMode('list')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: viewMode === 'list' ? 'var(--primary-light)' : 'transparent', color: viewMode === 'list' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                <LayoutList size={18} /> List
-              </button>
-              <button onClick={() => setViewMode('calendar')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: viewMode === 'calendar' ? 'var(--primary-light)' : 'transparent', color: viewMode === 'calendar' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                <CalendarIconUI size={18} /> Calendar
-              </button>
-            </div>
-          </div>
-
           {viewMode === 'calendar' ? (
             <CalendarView 
               events={events} 
-              onEventClick={(ev) => {
+              onEventClick={(ev: any) => {
                 if (ev.loggingCompletedAt) {
-                  alert(`Logging for "${ev.title}" is already finalized. Attendance cannot be modified.`);
+                  alert(`Logging for "${ev.title}" is already finalized.`);
                   return;
                 }
                 openAttendanceModal(ev);
               }} 
             />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
                 {PREDEFINED_PROGRAMS.map(prog => {
                   const alreadyAssigned = events.some(e => e.type === prog.type);
                   return (
-                    <div key={prog.type} className="glass-card" style={{ padding: '1.25rem', background: 'white', border: '1px solid #f1f5f9', opacity: alreadyAssigned ? 0.6 : 1 }}>
-                       <h4 style={{ fontSize: '1rem', marginBottom: '6px' }}>{prog.title}</h4>
-                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem', minHeight: '40px' }}>{prog.description}</p>
+                    <motion.div 
+                      key={prog.type} 
+                      whileHover={alreadyAssigned ? {} : { y: -5 }}
+                      className="glass-card" 
+                      style={{ 
+                        padding: '1.5rem', 
+                        background: 'white', 
+                        border: alreadyAssigned ? '1px solid #f1f5f9' : '1px solid #e2e8f0', 
+                        opacity: alreadyAssigned ? 0.6 : 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        boxShadow: alreadyAssigned ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                      }}
+                    >
+                       <div style={{ 
+                         width: '48px', 
+                         height: '48px', 
+                         borderRadius: '14px', 
+                         background: 'var(--primary-light)', 
+                         color: 'var(--primary)', 
+                         display: 'flex', 
+                         alignItems: 'center', 
+                         justifyContent: 'center',
+                         marginBottom: '1.25rem'
+                       }}>
+                         {getProgramIcon(prog.type)}
+                       </div>
+                       <h4 style={{ fontSize: '1.15rem', marginBottom: '8px', fontWeight: 700 }}>{prog.title}</h4>
+                       <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem', minHeight: '44px', lineHeight: 1.6 }}>{prog.description}</p>
                        <button 
                         onClick={() => setShowScheduleModal(prog)}
                         disabled={alreadyAssigned}
-                        className="btn btn-outline" 
-                        style={{ width: '100%', fontSize: '0.85rem' }}
+                        className={`btn ${alreadyAssigned ? 'btn-outline' : 'btn-primary'}`}
+                        style={{ width: '100%', fontSize: '0.95rem', marginTop: 'auto', padding: '14px', borderRadius: '14px' }}
                        >
-                         {alreadyAssigned ? 'Already Assigned' : 'Assign to Calendar'}
+                         {alreadyAssigned ? 'Already Assigned' : (
+                           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                             <Plus size={18} /> Schedule Session
+                           </span>
+                         )}
                        </button>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
 
-              <h4 style={{ fontSize: '1.1rem', marginTop: '1rem', marginBottom: '1rem' }}>Scheduled Programs</h4>
-              {events.length === 0 ? (
-                <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No programs scheduled yet. Use the cards above to assign dates.</p>
-              ) : (
-                events.map((ev) => (
-                  <div key={ev.id} className="glass-card" style={{ padding: '1.25rem', background: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {ev.title}
-                        {ev.completedAt && <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '10px' }}>Completed</span>}
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        <CalendarIconUI size={14} style={{ marginRight: '6px' }} />
-                        {new Date(ev.scheduledAt).toLocaleDateString(undefined, { dateStyle: 'long' })}
-                      </div>
-                      {ev.ambassador && (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '4px', fontWeight: 500 }}>
-                          Ambassador: {ev.ambassador.name}
-                        </div>
-                      )}
-                      {ev.completedAt && ev.attendanceJson?.totalPresent !== undefined && (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Users size={14} /> {ev.attendanceJson.totalPresent} Students Present
-                        </div>
-                      )}
+              <div style={{ marginTop: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Scheduled Programs</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>{filteredEvents.length} programs matching your filters</p>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '1rem', flex: 1, maxWidth: '650px', justifyContent: 'flex-end' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="text" 
+                        placeholder="Search by title or type..." 
+                        value={listSearch}
+                        onChange={(e) => setListSearch(e.target.value)}
+                        style={{ width: '100%', padding: '12px 12px 12px 42px', borderRadius: '16px', border: '1px solid #e2e8f0', fontSize: '0.95rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+                      />
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                      {!ev.completedAt ? (
-                        <button 
-                          onClick={() => handleMarkComplete(ev)} 
-                          className="btn btn-sm" 
+                    <select 
+                      value={listFilter} 
+                      onChange={(e: any) => setListFilter(e.target.value)}
+                      style={{ padding: '12px 20px', borderRadius: '16px', border: '1px solid #e2e8f0', background: 'white', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+                    >
+                      <option value="all">All Status</option>
+                      <option value="upcoming">Upcoming</option>
+                      <option value="ready">Ready to Log</option>
+                      <option value="finalized">Finalized</option>
+                    </select>
+                  </div>
+                </div>
+
+                {filteredEvents.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '5rem 2rem', background: '#f8fafc', borderRadius: '32px', border: '2px dashed #e2e8f0' }}>
+                    <CalendarIconUI size={56} color="#cbd5e1" style={{ marginBottom: '1.5rem' }} />
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '12px' }}>No programs found</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Try adjusting your search query or status filter.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {filteredEvents.map((ev) => {
+                      const isExpanded = expandedEvents[ev.id];
+                      return (
+                        <motion.div 
+                          key={ev.id} 
+                          layout
+                          initial={{ opacity: 0, scale: 0.98 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="glass-card" 
                           style={{ 
-                            background: '#dcfce7', 
-                            color: '#166534', 
-                            border: '1px solid #b7ebc6',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontWeight: 600
+                            background: 'white', 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            position: 'relative',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '28px',
+                            boxShadow: '0 4px 25px -5px rgba(0,0,0,0.04)',
+                            overflow: 'hidden'
                           }}
                         >
-                          <CheckCircle size={14} /> Mark Complete
-                        </button>
-                      ) : (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          {!ev.loggingCompletedAt ? (
-                            <>
+                          <div 
+                            onClick={() => toggleEventExpansion(ev.id)}
+                            style={{ padding: '1.75rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                          >
+                            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                              <div style={{ 
+                                width: '64px', 
+                                height: '64px', 
+                                borderRadius: '18px', 
+                                background: ev.completedAt ? '#f0fdf4' : '#f8fafc', 
+                                color: ev.completedAt ? '#16a34a' : 'var(--text-muted)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                border: '1px solid #f1f5f9',
+                                flexShrink: 0
+                              }}>
+                                {getProgramIcon(ev.type)}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: '1.4rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  {ev.title}
+                                  {ev.completedAt && (
+                                    <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '4px 12px', borderRadius: '20px', fontWeight: 800, textTransform: 'uppercase' }}>
+                                      {ev.loggingCompletedAt ? 'Finalized' : 'Completed'}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginTop: '8px' }}>
+                                  <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <CalendarIconUI size={16} color="var(--primary)" />
+                                    {new Date(ev.scheduledAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                                  </div>
+                                  <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Clock size={16} color="var(--primary)" />
+                                    {new Date(ev.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                  {ev.ambassador && (
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                                      <Users size={16} /> {ev.ambassador.name}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                               <button 
-                                onClick={() => openAttendanceModal(ev)} 
-                                className="btn btn-sm btn-outline"
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  fontWeight: 600
-                                }}
+                                onClick={(e) => { e.stopPropagation(); if(confirm('Delete this event?')) { eventService.delete(ev.id).then(() => refreshEvents(academicYear)); } }} 
+                                style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', width: '42px', height: '42px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                               >
-                                <Users size={14} /> Log Attendance
+                                <Trash2 size={20} />
                               </button>
-                              <button 
-                                onClick={() => handleFinalizeLogging(ev)} 
-                                className="btn btn-sm" 
-                                style={{ 
-                                  background: 'var(--primary)', 
-                                  color: 'white',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  fontWeight: 600,
-                                  boxShadow: '0 4px 6px -1px rgba(219, 39, 119, 0.2)'
-                                }}
+                              <div style={{ color: 'var(--text-muted)', background: '#f8fafc', padding: '10px', borderRadius: '12px' }}>
+                                {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                              </div>
+                            </div>
+                          </div>
+
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                style={{ overflow: 'hidden' }}
                               >
-                                <ClipboardCheck size={14} /> Finalize logging
-                              </button>
-                            </>
-                          ) : (
-                            <span style={{ 
-                              fontSize: '0.85rem', 
-                              fontWeight: 700, 
-                              color: '#16a34a', 
-                              background: '#f0fdf4', 
-                              padding: '6px 16px', 
-                              borderRadius: '20px',
-                              border: '1px solid #dcfce7',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}>
-                              <Check size={16} /> Logging Finalized
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      
-                      <button 
-                        onClick={() => { if(confirm('Are you sure you want to remove this scheduled program?')) eventService.delete(ev.id).then(fetchEvents); }} 
-                        className="btn btn-sm" 
-                        style={{ 
-                          background: '#fff1f2', 
-                          color: '#e11d48', 
-                          border: '1px solid #fecdd3',
-                          padding: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title="Remove Event"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                                <div style={{ padding: '0 1.75rem 2rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    padding: '1.5rem',
+                                    background: '#f8fafc',
+                                    borderRadius: '24px',
+                                    border: '1px solid #f1f5f9'
+                                  }}>
+                                    <div style={{ display: 'flex', gap: '3rem' }}>
+                                      {ev.completedAt && ev.attendanceJson?.totalPresent !== undefined ? (
+                                        <div style={{ display: 'flex', gap: '3rem' }}>
+                                          <div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.06em', marginBottom: '4px' }}>Participation</div>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                              <Users size={20} color="var(--primary)" /> {ev.attendanceJson.totalPresent} / {ev.attendanceJson.totalExpected || '-'}
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.06em', marginBottom: '4px' }}>Coverage</div>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#16a34a' }}>
+                                              {ev.attendanceJson.totalExpected ? Math.round((ev.attendanceJson.totalPresent / ev.attendanceJson.totalExpected) * 100) : 0}%
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div>
+                                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.06em', marginBottom: '4px' }}>Session Status</div>
+                                          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: ev.completedAt ? '#10b981' : '#f59e0b' }} />
+                                            {ev.completedAt ? 'Logging Active' : 'Upcoming Session'}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                      {!ev.completedAt ? (
+                                        <button 
+                                          onClick={() => handleMarkComplete(ev)} 
+                                          className="btn btn-primary" 
+                                          style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700, padding: '14px 28px', borderRadius: '16px' }}
+                                        >
+                                          <CheckCircle size={20} /> Complete Session
+                                        </button>
+                                      ) : (
+                                        <>
+                                          {!ev.loggingCompletedAt ? (
+                                            <>
+                                              <button 
+                                                onClick={() => openAttendanceModal(ev)} 
+                                                className="btn btn-outline"
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700, background: 'white', padding: '14px 28px', borderRadius: '16px' }}
+                                              >
+                                                <ClipboardCheck size={20} /> Attendence Log
+                                              </button>
+                                              <button 
+                                                onClick={() => handleFinalizeLogging(ev)} 
+                                                className="btn btn-primary" 
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700, padding: '14px 28px', borderRadius: '16px' }}
+                                              >
+                                                <ShieldCheck size={20} /> Finalize Records
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <div style={{ fontSize: '1rem', fontWeight: 800, color: '#16a34a', background: '#f0fdf4', padding: '14px 32px', borderRadius: '18px', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                              <CheckCircle size={24} /> Records Vaulted
+                                            </div>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {Array.isArray(ev.images) && ev.images.length > 0 && (
+                                    <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden' }}>
+                                      <Carousel images={ev.images} height="400px" borderRadius="24px" />
+                                    </div>
+                                  )}
+
+                                  {isManagement && ev.completedAt && (
+                                    <div style={{ marginTop: '0.5rem' }}>
+                                      <label 
+                                        style={{ background: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '24px', padding: '2rem', fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer', color: 'var(--primary)', width: '100%', justifyContent: 'center', transition: 'all 0.2s' }}
+                                      >
+                                        {uploadingForEvent === ev.id ? (
+                                          <span style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                            <div className="animate-spin" style={{ width: '22px', height: '22px', border: '3px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }} />
+                                            Uploading Highlights...
+                                          </span>
+                                        ) : (
+                                          <>
+                                            <ImageIcon size={24} />
+                                            {Array.isArray(ev.images) && ev.images.length > 0 ? 'Add More Highlights' : 'Upload Session Highlights'}
+                                          </>
+                                        )}
+                                        <input 
+                                          type="file" 
+                                          hidden 
+                                          accept="image/*" 
+                                          disabled={uploadingForEvent === ev.id}
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleImageUpload(ev.id, file);
+                                          }} 
+                                        />
+                                      </label>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                    );
+                  })}
+                </div>
               )}
             </div>
-          )}
-        </>
-      ) : (
+          </div>
+        )}
+      </>
+    ) : (
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          style={{ 
-            textAlign: 'center', 
-            padding: '5rem 2rem', 
-            background: 'white', 
-            borderRadius: '32px', 
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)'
-          }}
+          style={{ textAlign: 'center', padding: '6rem 2rem', background: 'white', borderRadius: '40px', border: '1px solid #e2e8f0' }}
         >
-          <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 2rem auto' }}>
+          <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 2.5rem auto' }}>
             <div style={{ position: 'absolute', inset: 0, background: 'var(--primary-light)', borderRadius: '50%', opacity: 0.2, animation: 'pulse 2s infinite' }}></div>
-            <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--primary-light)' }}>
-              <ShieldCheck size={48} color="var(--primary)" />
+            <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--primary-light)' }}>
+              <ShieldCheck size={56} color="var(--primary)" />
             </div>
-            <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#ef4444', color: 'white', borderRadius: '50%', padding: '6px', border: '3px solid white' }}>
-              <Lock size={18} />
+            <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#ef4444', color: 'white', borderRadius: '50%', padding: '8px', border: '4px solid white' }}>
+              <Lock size={20} />
             </div>
           </div>
 
-          <h2 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--text-main)' }}>Annual Program Access Restricted</h2>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto 3rem auto', lineHeight: 1.8, fontSize: '1.1rem' }}>
-            To ensure high-quality delivery of our specialized programs, access to the annual calendar is unlocked once the institutional credit goal of <strong>₹{creditGoal.toLocaleString()}</strong> is reached.
+          <h2 style={{ fontSize: '2.75rem', fontWeight: 800, marginBottom: '1.25rem' }}>Calendar Locked</h2>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '650px', margin: '0 auto 3.5rem auto', lineHeight: 1.8, fontSize: '1.2rem' }}>
+            Activated once the institutional sponsor pool reaches <strong>₹{creditGoal.toLocaleString()}</strong>.
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1.5rem', maxWidth: '800px', margin: '0 auto 4rem auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '2rem', maxWidth: '800px', margin: '0 auto 4rem auto' }}>
              {[
-               { icon: <CheckCircle2 size={24} />, label: 'Health Checkups' },
-               { icon: <Info size={24} />, label: 'Mental Wellness' },
-               { icon: <LayoutList size={24} />, label: 'Nutrition Sessions' },
-               { icon: <ShieldCheck size={24} />, label: 'Safety Drills' }
+               { icon: <HeartPulse size={28} />, label: 'Medical' },
+               { icon: <Brain size={28} />, label: 'Psychology' },
+               { icon: <Salad size={28} />, label: 'Nutrition' },
+               { icon: <Flame size={28} />, label: 'Disaster' }
              ].map((item, i) => (
-               <div key={i} style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', opacity: 0.6 }}>
+               <div key={i} style={{ padding: '2rem', background: '#f8fafc', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
                   <div style={{ color: 'var(--primary)' }}>{item.icon}</div>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{item.label}</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700 }}>{item.label}</span>
                </div>
              ))}
           </div>
 
-          <div style={{ background: '#fff7ed', padding: '1.5rem', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '1rem', border: '1px solid #ffedd5', marginBottom: '2.5rem' }}>
-            <div style={{ padding: '10px', background: '#fb923c', color: 'white', borderRadius: '12px' }}>
-              <Info size={20} />
+          <div style={{ maxWidth: '600px', margin: '0 auto 4rem auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontWeight: 700, fontSize: '0.95rem' }}>
+              <span style={{ color: '#9a3412' }}>Sponsorship Pool Progress</span>
+              <span style={{ color: 'var(--primary)' }}>{Math.round((totalCollected / creditGoal) * 100)}%</span>
             </div>
-            <div style={{ textAlign: 'left' }}>
-               <div style={{ fontWeight: 700, color: '#9a3412', fontSize: '0.95rem' }}>Funding Gap identified</div>
-               <div style={{ fontSize: '0.85rem', color: '#c2410c' }}>Current Pool: ₹{totalCollected.toLocaleString()} | Remaining: ₹{(creditGoal - totalCollected).toLocaleString()}</div>
+            <div style={{ width: '100%', height: '14px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(100, (totalCollected / creditGoal) * 100)}%` }}
+                style={{ height: '100%', background: 'linear-gradient(90deg, var(--primary), #db2777)', borderRadius: '10px' }}
+              />
+            </div>
+            <div style={{ marginTop: '12px', fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+              <Info size={16} /> 
+              <span>₹{totalCollected.toLocaleString()} collected of ₹{creditGoal.toLocaleString()} goal</span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button 
               onClick={handlePayGap} 
               disabled={paying}
               className="btn btn-primary" 
-              style={{ padding: '16px 40px', fontSize: '1.1rem', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(219, 39, 119, 0.3)' }}
+              style={{ padding: '20px 48px', fontSize: '1.2rem', borderRadius: '20px', fontWeight: 800 }}
             >
-              {paying ? 'Setting up gateway...' : `Bridge ₹${(creditGoal - totalCollected).toLocaleString()} Gap`}
+              {paying ? 'Processing...' : `Bridge ₹${(creditGoal - totalCollected).toLocaleString()} Gap`}
             </button>
           </div>
         </motion.div>
@@ -539,156 +730,101 @@ const Events: React.FC = () => {
 
       <AnimatePresence>
         {showScheduleModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-card" style={{ background: 'white', width: '100%', maxWidth: '400px', padding: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem' }}>Assign {showScheduleModal.title}</h3>
-                <button onClick={() => setShowScheduleModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                  <XCircle size={22} color="var(--text-muted)" />
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="glass-card" style={{ background: 'white', width: '100%', maxWidth: '450px', padding: '2.5rem', borderRadius: '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Schedule Program</h3>
+                <button onClick={() => setShowScheduleModal(null)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '12px' }}>
+                  <XCircle size={24} color="var(--text-muted)" />
                 </button>
               </div>
-              <form onSubmit={(e: any) => { e.preventDefault(); handleAssignProgram(showScheduleModal, e.target.scheduledAt.value); }}>
-                <div className="form-group">
-                  <label>Select Date & Time</label>
-                  <input name="scheduledAt" type="datetime-local" required className="form-control" />
+              <form onSubmit={(e: React.FormEvent<HTMLFormElement>) => { 
+                e.preventDefault(); 
+                const form = e.currentTarget;
+                const scheduledAt = (form.elements.namedItem('scheduledAt') as HTMLInputElement).value;
+                handleAssignProgram(showScheduleModal, scheduledAt); 
+              }}>
+                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ fontWeight: 700, marginBottom: '8px', display: 'block' }}>Date & Time</label>
+                  <input name="scheduledAt" type="datetime-local" required className="form-control" style={{ borderRadius: '12px', padding: '12px', height: 'auto' }} />
                 </div>
-                <div className="form-group" style={{ marginTop: '1rem' }}>
-                  <label>Assign Ambassador (Optional)</label>
+                <div className="form-group" style={{ marginBottom: '2rem' }}>
+                  <label style={{ fontWeight: 700, marginBottom: '8px', display: 'block' }}>Assign Ambassador</label>
                   <select 
                     value={selectedAmbassadorId} 
                     onChange={(e) => setSelectedAmbassadorId(e.target.value)}
                     className="form-control"
+                    style={{ borderRadius: '12px', padding: '12px', height: 'auto' }}
                   >
-                    <option value="">No Ambassador</option>
+                    <option value="">No Ambassador Assigned</option>
                     {ambassadors.map(a => (
-                      <option key={a.id} value={a.id}>{a.name} ({a.type})</option>
+                      <option key={a.id} value={String(a.id)}>{a.name}</option>
                     ))}
                   </select>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Note: Assignment generates a confirmation invoice for the ambassador upon event completion.
-                  </p>
                 </div>
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1.5rem' }}>Assign to Calendar</button>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', borderRadius: '16px', fontWeight: 800 }}>Confirm</button>
               </form>
             </motion.div>
           </div>
         )}
 
         {attendanceModalEvent && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }} 
-              animate={{ opacity: 1, scale: 1, y: 0 }} 
-              className="glass-card" 
-              style={{ background: 'white', width: '100%', maxWidth: '600px', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
-            >
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', marginBottom: '4px' }}>Log Attendance</h3>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>{attendanceModalEvent.title}</p>
-                </div>
-                <button onClick={() => setAttendanceModalEvent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
-                  <XCircle size={24} color="var(--text-muted)" />
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} className="glass-card" style={{ background: 'white', width: '100%', maxWidth: '700px', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: '32px', overflow: 'hidden' }}>
+              <div style={{ padding: '2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Log Attendance</h3>
+                <button onClick={() => setAttendanceModalEvent(null)} style={{ background: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', padding: '10px', borderRadius: '14px' }}>
+                  <XCircle size={26} color="var(--text-muted)" />
                 </button>
               </div>
 
-              {/* Modal Filters */}
-              <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
-                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    placeholder="Search student..." 
-                    value={attSearch}
-                    onChange={(e) => setAttSearch(e.target.value)}
-                    style={{ width: '100%', height: '40px', paddingLeft: '2.5rem', paddingRight: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.9rem' }}
-                  />
-                </div>
-                <select 
-                  value={attFilterClass}
-                  onChange={(e) => setAttFilterClass(e.target.value)}
-                  style={{ height: '40px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.9rem', minWidth: '90px' }}
-                >
-                  <option value="">All Cls</option>
-                  {uniqueClasses.map(c => <option key={c} value={String(c)}>Cls {c}</option>)}
-                </select>
-                <select 
-                  value={attFilterSection}
-                  onChange={(e) => setAttFilterSection(e.target.value)}
-                  style={{ height: '40px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.9rem', minWidth: '90px' }}
-                >
-                  <option value="">All Sec</option>
-                  {uniqueSections.map(s => <option key={s} value={s}>Sec {s}</option>)}
+              <div style={{ padding: '1.25rem 2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <input 
+                  type="text" 
+                  placeholder="Filter Students..." 
+                  value={attSearch}
+                  onChange={(e) => setAttSearch(e.target.value)}
+                  style={{ flex: 1, minWidth: '200px', padding: '12px 16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}
+                />
+                <select value={attFilterClass} onChange={(e) => setAttFilterClass(e.target.value)} style={{ padding: '12px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                  <option value="">Classes</option>
+                  {uniqueClasses.map(c => <option key={c} value={String(c)}>Class {c}</option>)}
                 </select>
               </div>
 
-              {/* Student List */}
-              <div style={{ padding: '1rem', overflowY: 'auto', flex: 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {filteredChildren.map(child => {
+              <div style={{ padding: '1.5rem 2rem', overflowY: 'auto', flex: 1 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {filteredChildren.map((child: any) => {
                     const isAbsent = studentStatuses[child.id] === 'Absent';
                     return (
                       <div 
                         key={child.id}
                         onClick={() => toggleStudentStatus(child.id)}
-                        style={{ 
-                          padding: '0.75rem 1rem', 
-                          borderRadius: '12px', 
-                          border: isAbsent ? '1px solid #fee2e2' : '1px solid #f1f5f9',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          cursor: 'pointer',
-                          background: isAbsent ? '#fffafb' : '#f8fafc',
-                          transition: 'all 0.2s'
-                        }}
+                        style={{ padding: '1rem', borderRadius: '16px', border: '2px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: isAbsent ? '#fffafb' : 'white' }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', border: '1px solid #e2e8f0' }}>
-                            {child.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{child.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Class {child.class}-{child.section} • {child.registrationNo}</div>
-                          </div>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>{child.name}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Cls {child.class}-{child.section}</div>
                         </div>
-                        <div 
-                          style={{ 
-                            padding: '4px 12px', 
-                            borderRadius: '20px', 
-                            fontSize: '0.75rem', 
-                            fontWeight: 700,
-                            background: isAbsent ? '#ef4444' : '#10b981',
-                            color: 'white',
-                            minWidth: '70px',
-                            textAlign: 'center'
-                          }}
-                        >
+                        <div style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800, background: isAbsent ? '#ef4444' : '#10b981', color: 'white' }}>
                           {isAbsent ? 'Absent' : 'Present'}
                         </div>
                       </div>
                     );
                   })}
-                  {filteredChildren.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No students found matching filters</div>
-                  )}
                 </div>
               </div>
 
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
-                <div style={{ marginBottom: '1rem' }}>
-                   <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Event Notes</label>
-                   <textarea 
-                    value={attendanceForm.notes} 
-                    onChange={(e) => setAttendanceForm({ ...attendanceForm, notes: e.target.value })} 
-                    style={{ width: '100%', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '0.75rem', fontSize: '0.9rem', resize: 'none' }}
-                    placeholder="Any specific observations or session notes?"
-                    rows={2}
-                   />
-                </div>
+              <div style={{ padding: '2rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                <textarea 
+                  value={attendanceForm.notes} 
+                  onChange={(e) => setAttendanceForm({ notes: e.target.value })} 
+                  style={{ width: '100%', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '1rem', marginBottom: '1.5rem', resize: 'none' }}
+                  placeholder="Session notes..."
+                />
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                  <button onClick={handleAttendanceSubmit} className="btn btn-primary" style={{ flex: 1, height: '45px' }}>Save Attendance & Sync Statuses</button>
-                  <button onClick={() => setAttendanceModalEvent(null)} className="btn btn-outline" style={{ background: 'white', border: '1px solid #e2e8f0', color: 'var(--text-main)', height: '45px' }}>Cancel</button>
+                  <button onClick={handleAttendanceSubmit} className="btn btn-primary" style={{ flex: 1, height: '54px', borderRadius: '16px', fontWeight: 800 }}>Save Records</button>
+                  <button onClick={() => setAttendanceModalEvent(null)} className="btn btn-outline" style={{ background: 'white', borderRadius: '16px' }}>Cancel</button>
                 </div>
               </div>
             </motion.div>
