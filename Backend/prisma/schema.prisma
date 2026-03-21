@@ -169,7 +169,30 @@ model HealthRecord {
   visionNotes          String?
   visionOverall        String?
   visionReferralNeeded Boolean?  @default(false)
+  colorBlindness       Boolean?  @default(false)
+  eyeSquint            Boolean?  @default(false)
+  bmiStatus            String?   @default("Absent")
+  eyeStatus            String?   @default("Absent")
+  dentalStatus         String?   @default("Absent")
+  // General Health / Vitals
+  bloodPressure        String?
+  pulse                Int?
+  temperature          Float?
+  respiratoryRate      Int?
+  pigeonChest          Boolean?  @default(false)
+  enlargedTonsils      Boolean?  @default(false)
   child                Child     @relation(fields: [childId], references: [id])
+  edits                HealthRecordEdit[]
+}
+
+model HealthRecordEdit {
+  id             Int          @id @default(autoincrement())
+  recordId       Int
+  userId         Int
+  changedAt      DateTime     @default(now())
+  changesJson    Json
+  record         HealthRecord @relation(fields: [recordId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
 }
 
 model Event {
@@ -191,6 +214,7 @@ model Event {
   donations      Donation[]
   ambassador     AmbassadorDirectory? @relation(fields: [ambassadorId], references: [id])
   school         School               @relation(fields: [schoolId], references: [id])
+  request        EventRequest?
 }
 
 model AmbassadorDirectory {
@@ -206,6 +230,33 @@ model AmbassadorDirectory {
   schoolId     Int?
   school       School?        @relation(fields: [schoolId], references: [id])
   events       Event[]
+}
+
+model EventRequest {
+  id             Int           @id @default(autoincrement())
+  eventId        Int           @unique
+  schoolId       Int
+  requesterId    Int
+  status         RequestStatus @default(PENDING)
+  
+  personName     String?
+  personContact  String?
+  personDetails  String?
+  
+  officialNotes  String?
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  event          Event         @relation(fields: [eventId], references: [id])
+  school         School        @relation(fields: [schoolId], references: [id])
+  requester      User          @relation("UserRequests", fields: [requesterId], references: [id])
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model Certification {

@@ -16,6 +16,7 @@ import accessRoutes from "./routes/accessRoutes";
 import partnerRoutes from "./routes/partnerRoutes";
 import cardRoutes from "./routes/cardRoutes";
 import staffRoutes from "./routes/staffRoutes";
+import eventRequestRoutes from "./routes/eventRequestRoutes";
 
 // Config is already loaded at the top
 
@@ -56,6 +57,7 @@ app.use("/api/access", accessRoutes);
 app.use("/api/partner", partnerRoutes);
 app.use("/api/card", cardRoutes);
 app.use("/api/staff", staffRoutes);
+app.use("/api/event-requests", eventRequestRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });

@@ -69,6 +69,19 @@ export class HealthService {
         visionOverall: data.visionOverall || null,
         visionReferralNeeded: data.visionReferralNeeded != null ? toBool(data.visionReferralNeeded) : false,
         visionNotes: data.visionNotes || null,
+        colorBlindness: data.colorBlindness != null ? toBool(data.colorBlindness) : false,
+        eyeSquint: data.eyeSquint != null ? toBool(data.eyeSquint) : false,
+        bmiStatus: data.bmiStatus || "Absent",
+        eyeStatus: data.eyeStatus || "Absent",
+        dentalStatus: data.dentalStatus || "Absent",
+
+        // vitals
+        bloodPressure: data.bloodPressure || null,
+        pulse: toFloatOrNull(data.pulse) ? parseInt(data.pulse) : null,
+        temperature: toFloatOrNull(data.temperature),
+        respiratoryRate: toFloatOrNull(data.respiratoryRate) ? parseInt(data.respiratoryRate) : null,
+        pigeonChest: data.pigeonChest != null ? toBool(data.pigeonChest) : false,
+        enlargedTonsils: data.enlargedTonsils != null ? toBool(data.enlargedTonsils) : false,
 
         reportFile: data.reportFile || null,
       },
@@ -82,7 +95,7 @@ export class HealthService {
     });
   }
 
-  static async updateRecord(recordId: number, data: any) {
+  static async updateRecord(recordId: number, data: any, userId: number) {
     const toFloatOrNull = (value: any): number | null => {
       if (value === undefined || value === null || value === "") return null;
       const parsed = parseFloat(value);
@@ -139,10 +152,32 @@ export class HealthService {
       visionOverall: data.visionOverall || null,
       visionReferralNeeded: data.visionReferralNeeded != null ? toBool(data.visionReferralNeeded) : false,
       visionNotes: data.visionNotes || null,
+      colorBlindness: data.colorBlindness != null ? toBool(data.colorBlindness) : false,
+      eyeSquint: data.eyeSquint != null ? toBool(data.eyeSquint) : false,
+      bmiStatus: data.bmiStatus || "Absent",
+      eyeStatus: data.eyeStatus || "Absent",
+      dentalStatus: data.dentalStatus || "Absent",
+
+      // vitals
+      bloodPressure: data.bloodPressure || null,
+      pulse: toFloatOrNull(data.pulse) ? parseInt(data.pulse) : null,
+      temperature: toFloatOrNull(data.temperature),
+      respiratoryRate: toFloatOrNull(data.respiratoryRate) ? parseInt(data.respiratoryRate) : null,
+      pigeonChest: data.pigeonChest != null ? toBool(data.pigeonChest) : false,
+      enlargedTonsils: data.enlargedTonsils != null ? toBool(data.enlargedTonsils) : false,
     };
     if (data.reportFile !== undefined) {
       updateData.reportFile = data.reportFile;
     }
+
+    // Capture the edit history
+    await prisma.healthRecordEdit.create({
+      data: {
+        recordId,
+        userId,
+        changesJson: data, // Storing the full submitted data as changes for simplicity
+      }
+    });
 
     return prisma.healthRecord.update({
       where: { id: recordId },

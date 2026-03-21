@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { eventService, ambassadorService, schoolService } from '../services/api';
+import { eventService, ambassadorService, schoolService, dashboardService } from '../services/api';
 
 interface SchoolDataState {
   events: any[];
   ambassadors: any[];
   benefactors: any[]; // grouped donations/partners
   school: any | null;
+  overview: any | null;
+  districtOverview: any | null;
   loading: boolean;
   error: string | null;
 }
@@ -15,6 +17,8 @@ interface SchoolDataContextType extends SchoolDataState {
   refreshAmbassadors: () => Promise<void>;
   refreshBenefactors: () => Promise<void>;
   refreshSchool: () => Promise<void>;
+  refreshOverview: (year?: string, classNum?: number, section?: string) => Promise<void>;
+  refreshDistrictOverview: (year?: string) => Promise<void>;
   refreshAll: (year?: string) => Promise<void>;
 }
 
@@ -26,11 +30,13 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     ambassadors: [],
     benefactors: [],
     school: null,
+    overview: null,
+    districtOverview: null,
     loading: false,
     error: null,
   });
 
-  const refreshEvents = useCallback(async (year: string = '2024-2025') => {
+  const refreshEvents = useCallback(async (year: string = '') => {
     try {
       const data = await eventService.getAll(year);
       setState(prev => ({ ...prev, events: data || [] }));
@@ -51,7 +57,6 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const refreshBenefactors = useCallback(async () => {
     try {
       const data = await schoolService.getDonations();
-      // Group by partner (user id or name) as done in Ambassadors.tsx
       const allDonations: any[] = data.donations || [];
       const grouped = allDonations.reduce((acc: any, d: any) => {
         const key = d.user?.id ?? 'anon';
@@ -79,18 +84,50 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, []);
 
-  const refreshAll = useCallback(async (year: string = '2024-2025') => {
+  const refreshOverview = useCallback(async (year: string = '', classNum?: number, section?: string) => {
+    try {
+      const data = await dashboardService.getOverview(year, classNum, section);
+      setState(prev => ({ ...prev, overview: data }));
+    } catch (err: any) {
+      console.error('Failed to fetch overview:', err);
+    }
+  }, []);
+
+  const refreshDistrictOverview = useCallback(async (year: string = '') => {
+    try {
+      const data = await dashboardService.getDistrictOverview(year);
+      setState(prev => ({ ...prev, districtOverview: data }));
+    } catch (err: any) {
+      console.error('Failed to fetch district overview:', err);
+    }
+  }, []);
+
+  const refreshAll = useCallback(async (year: string = '') => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const [eventsData, schoolData, ambassadorsData, donationsData] = await Promise.all([
-        eventService.getAll(year),
-        schoolService.getMySchool(),
-        ambassadorService.getAll(),
-        schoolService.getDonations()
-      ]);
+      const userStr = localStorage.getItem('school_user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const role = user?.role;
+
+      const basePromises: Promise<any>[] = [
+        eventService.getAll(year).catch(() => []),
+        schoolService.getMySchool().catch(() => null),
+        ambassadorService.getAll().catch(() => []),
+        schoolService.getDonations().catch(() => ({ donations: [] })),
+      ];
+
+      let dashboardPromise: Promise<any> = Promise.resolve(null);
+      if (role === 'DISTRICT_VIEWER') {
+        dashboardPromise = dashboardService.getDistrictOverview(year).catch(() => null);
+      } else if (role && role !== 'PARTNER') {
+        dashboardPromise = dashboardService.getOverview(year, user?.assignedClass, user?.assignedSection).catch(() => null);
+      }
+      basePromises.push(dashboardPromise);
+
+      const [eventsData, schoolData, ambassadorsData, donationsData, dashboardData] = await Promise.all(basePromises);
 
       // Group donations
-      const allDonations: any[] = donationsData.donations || [];
+      const allDonations: any[] = (donationsData?.donations) || [];
       const grouped = allDonations.reduce((acc: any, d: any) => {
         const key = d.user?.id ?? 'anon';
         const name = d.user?.name || 'Anonymous';
@@ -107,6 +144,8 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         school: schoolData,
         ambassadors: ambassadorsData || [],
         benefactors: partners,
+        overview: role === 'DISTRICT_VIEWER' ? null : (dashboardData || null),
+        districtOverview: role === 'DISTRICT_VIEWER' ? (dashboardData || null) : null,
         loading: false,
         error: null
       });
@@ -133,6 +172,8 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     refreshAmbassadors,
     refreshBenefactors,
     refreshSchool,
+    refreshOverview,
+    refreshDistrictOverview,
     refreshAll,
   };
 

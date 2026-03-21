@@ -1,7 +1,18 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { schoolService, authService, dashboardService, partnerService } from '../services/api';
-import { LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, ClipboardList, CalendarPlus, Award, Heart, Globe, Activity, Eye, Smile, Pencil, UserCircle, UserCog, Upload, X, Shield, ChevronRight, HeartPulse, Flame, HardHat, Stethoscope, Baby, Users, AlertTriangle, Clock, CheckCircle2, Bell } from 'lucide-react';
+import { authService, schoolService, partnerService } from '../services/api';
+import { useSchoolData } from '../context/SchoolDataContext';
+import { 
+  LayoutDashboard, LogOut, School, ShieldCheck, Mail, Phone, 
+  ClipboardList, CalendarPlus, Award, Heart, Globe, Activity, 
+  Eye, Smile, Pencil, UserCircle, UserCog, Upload, X, Shield, 
+  ChevronRight, HeartPulse, Flame, HardHat, Stethoscope, Baby, 
+  Users, AlertTriangle, Clock, CheckCircle2, Bell 
+} from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
+} from 'recharts';
 
 // PRD §4.1: Tab visibility by role
 const formatRole = (role: string) =>
@@ -27,10 +38,12 @@ const canSeeTab = (role: string, tab: string): boolean => {
       return ['PARTNER', 'WOMBTO18_OPS'].includes(role);
     case 'my-donations':
       return ['PARTNER'].includes(role);
+    case 'requests':
+      return ['WOMBTO18_OPS'].includes(role);
     default:
       return false;
   }
-};
+}
 
 const DetailRow = ({ label, value }: { label: string; value?: string | number | null }) => (
   <div>
@@ -223,8 +236,9 @@ import StaffManagement from './StaffManagement';
 import Ambassadors from './Ambassadors';
 import PartnerDashboard from './PartnerDashboard';
 import { CircularProgress } from '../components/CircularProgress';
+import EventRequests from './EventRequests';
 
-type TabId = 'dashboard' | 'school-details' | 'events' | 'ambassadors' | 'certifications' | 'records' | 'staff' | 'available-schools' | 'my-donations';
+type TabId = 'dashboard' | 'school-details' | 'events' | 'ambassadors' | 'certifications' | 'records' | 'staff' | 'available-schools' | 'my-donations' | 'requests';
 
 const Dashboard: React.FC = () => {
   const location = useLocation();
@@ -233,11 +247,20 @@ const Dashboard: React.FC = () => {
   const user = userStr ? JSON.parse(userStr) : null;
   const role = user?.role ?? '';
 
-  const [school, setSchool] = useState<any>(null);
-  const [overview, setOverview] = useState<any>(null);
-  const [districtOverview, setDistrictOverview] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [partnerStats, setPartnerStats] = useState({ totalAmount: 0, count: 0 });
+  const { 
+    school, 
+    overview, 
+    districtOverview, 
+    loading,
+    refreshOverview,
+    refreshAll
+  } = useSchoolData();
+
+  const [selectedClass, setSelectedClass] = useState<number | 'all'>('all');
+  const [selectedSection, setSelectedSection] = useState<string | 'all'>('all');
+  const [actionPanelTab, setActionPanelTab] = useState<'tasks' | 'events'>('tasks');
+  const [showAllEvents, setShowAllEvents] = useState(false);
+
   const [showEditLeadership, setShowEditLeadership] = useState(false);
   const [leadershipForm, setLeadershipForm] = useState<any>({});
 
@@ -247,6 +270,54 @@ const Dashboard: React.FC = () => {
   }, [role]);
 
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+
+  // Handle tab from URL query param
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab') as TabId;
+    if (tabParam && visibleTabs.includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search, visibleTabs]);
+
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      const classNum = selectedClass === 'all' ? undefined : Number(selectedClass);
+      const section = selectedSection === 'all' ? undefined : selectedSection;
+      refreshOverview('2024-2025', classNum, section);
+    }
+  }, [selectedClass, selectedSection, activeTab, refreshOverview]);
+
+  const dentalPieData = useMemo(() => {
+    if (!overview?.prevalence) return [];
+    const { dentalHealthy, dentalIssues, dentalScreened } = overview.prevalence;
+    return [
+      { name: 'Healthy', value: dentalHealthy, color: '#10b981' },
+      { name: 'Issues', value: dentalIssues, color: '#f59e0b' },
+      { name: 'Pending', value: Math.max(0, overview.totalStudents - dentalScreened), color: '#e2e8f0' }
+    ];
+  }, [overview]);
+
+  const visionPieData = useMemo(() => {
+    if (!overview?.prevalence) return [];
+    const { visionNormal, visionIssues, visionScreened } = overview.prevalence;
+    return [
+      { name: 'Normal', value: visionNormal, color: '#3b82f6' },
+      { name: 'Issues', value: visionIssues, color: '#ef4444' },
+      { name: 'Pending', value: Math.max(0, overview.totalStudents - visionScreened), color: '#e2e8f0' }
+    ];
+  }, [overview]);
+
+  const bmiPieData = useMemo(() => {
+    if (!overview?.prevalence) return [];
+    const { bmiNormal, bmiRiskTotal, bmiUnderweight, bmiScreened } = overview.prevalence;
+    return [
+      { name: 'Normal', value: bmiNormal, color: '#ec4899' },
+      { name: 'At Risk', value: bmiRiskTotal, color: '#f97316' },
+      { name: 'Underweight', value: bmiUnderweight, color: '#06b6d4' },
+      { name: 'Pending', value: Math.max(0, overview.totalStudents - bmiScreened), color: '#e2e8f0' }
+    ];
+  }, [overview]);
   const [modalTab, setModalTab] = useState<'leaders' | 'emergency' | 'health'>('leaders');
   const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
 
@@ -264,47 +335,12 @@ const Dashboard: React.FC = () => {
       setActiveTab(visibleTabs[0]);
     }
   }, [visibleTabs, activeTab]);
-
-  useEffect(() => {
-    const fetchSchool = async () => {
-      if (role === 'PARTNER') {
-        setLoading(false);
-        return;
-      }
-      try {
-        const data = await schoolService.getMySchool();
-        setSchool(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSchool();
-  }, []);
-
-  useEffect(() => {
-    const ay = school?.academicYear || '2024-2025';
-    if (activeTab !== 'dashboard') return;
-
-    if (role === 'DISTRICT_VIEWER') {
-      dashboardService
-        .getDistrictOverview(ay)
-        .then(setDistrictOverview)
-        .catch(() => setDistrictOverview(null));
-    } else if (school) {
-      dashboardService
-        .getOverview(ay, user?.assignedClass ?? undefined, user?.assignedSection ?? undefined)
-        .then(setOverview)
-        .catch(() => setOverview(null));
-    }
-  }, [school, activeTab]);
-
+  // No need to fetch here, context handles it. 
+  // We can trigger a refresh if needed, but on mount refreshAll in context runs.
   useEffect(() => {
     if (role === 'PARTNER' && activeTab === 'dashboard') {
-      partnerService.getDonations().then(data => {
-        const total = data.reduce((sum: number, d: any) => sum + d.amount, 0);
-        setPartnerStats({ totalAmount: total, count: data.length });
+      partnerService.getDonations().then(() => {
+        // Stats are for non-partner roles; partners see PartnerDashboard
       }).catch(() => {});
     }
   }, [role, activeTab]);
@@ -353,8 +389,7 @@ const Dashboard: React.FC = () => {
     try {
       if (!school) return;
       await schoolService.update(school.id, leadershipForm);
-      const updated = await schoolService.getMySchool();
-      setSchool(updated);
+      refreshAll();
       setShowEditLeadership(false);
     } catch (err) {
       console.error(err);
@@ -551,6 +586,25 @@ const Dashboard: React.FC = () => {
             <Heart size={20} /> My Donations
           </div>
           )}
+          {canSeeTab(role, 'requests') && (
+          <div 
+            onClick={() => setActiveTab('requests')}
+            style={{ 
+              background: activeTab === 'requests' ? 'var(--primary-light)' : 'transparent', 
+              color: activeTab === 'requests' ? 'var(--primary)' : 'var(--text-muted)', 
+              padding: '0.75rem 1rem', 
+              borderRadius: '12px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              fontWeight: '500', 
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Bell size={20} /> Event Requests
+          </div>
+          )}
         </nav>
 
         <button onClick={handleLogout} className="btn" style={{ background: '#fee2e2', color: '#dc2626', width: '100%' }}>
@@ -616,6 +670,63 @@ const Dashboard: React.FC = () => {
             </div>
           ) : activeTab === 'dashboard' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Header with Filters */}
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }}
+                style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '1.5rem', 
+                  background: 'white', 
+                  padding: '2rem', 
+                  borderRadius: '24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1.5rem' }}>
+                  <div style={{ flex: 1, minWidth: '300px' }}>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#0f172a', marginBottom: '8px', letterSpacing: '-0.02em' }}>School Performance Dashboard</h2>
+                    <p style={{ color: '#64748b', fontSize: '0.95rem' }}>Cohort analytics and high-risk health metrics</p>
+                  </div>
+                  
+                  {/* Dashboard Filters */}
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Select Class</label>
+                      <select 
+                        value={selectedClass} 
+                        onChange={(e) => setSelectedClass(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                        className="glass-effect"
+                        style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', cursor: 'pointer', minWidth: '140px' }}
+                      >
+                        <option value="all">All Classes</option>
+                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>Class {n}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Section</label>
+                      <select 
+                        value={selectedSection} 
+                        onChange={(e) => setSelectedSection(e.target.value)}
+                        className="glass-effect"
+                        style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', cursor: 'pointer', minWidth: '100px' }}
+                      >
+                        <option value="all">All</option>
+                        {['A','B','C', 'D'].map(s => <option key={s} value={s}>Section {s}</option>)}
+                      </select>
+                    </div>
+                    <button 
+                      onClick={() => { setSelectedClass('all'); setSelectedSection('all'); }}
+                      style={{ height: '42px', alignSelf: 'flex-end', padding: '0 1rem', borderRadius: '12px', border: '1px solid #fee2e2', background: '#fff1f1', color: '#ef4444', fontWeight: 600, fontSize: '0.85rem' }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+
               {role === 'DISTRICT_VIEWER' && districtOverview && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -675,7 +786,7 @@ const Dashboard: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}
+                  style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}
                 >
                   <div className="glass-card" style={{ padding: '2rem 1.5rem 1.5rem 1.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                     <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1.5rem' }}>Checkup Coverage</p>
@@ -694,179 +805,342 @@ const Dashboard: React.FC = () => {
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} />
                         <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{overview.studentsPending} Pending</span>
                       </div>
-                      {overview.studentsAbsent > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f1f5f9' }} />
-                          <span style={{ color: 'var(--text-muted)' }}>{overview.studentsAbsent} Absent</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                   <div className="glass-card" style={{ padding: '2rem 1.5rem 1.5rem 1.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1.5rem' }}>Drill Completion</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1.5rem' }}>Events Overview</p>
                     <CircularProgress 
-                      percentage={overview.drillPercent} 
+                      percentage={Math.round(((overview.eventsFinalized || 0) / Math.max(1, (overview.eventsTarget || 9))) * 100)} 
+                      pendingPercentage={Math.round(((overview.eventsReady || 0) / Math.max(1, (overview.eventsTarget || 9))) * 100)}
+                      extraPercentage={Math.round(((overview.eventsScheduled || 0) / Math.max(1, (overview.eventsTarget || 9))) * 100)}
                       size={180} 
-                      color="#3b82f6" 
+                      color="#10b981" 
+                      pendingColor="#f59e0b"
+                      extraColor="#3b82f6"
+                      subLabel="OF TARGET"
                     />
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem', fontWeight: 600 }}>{overview.drillCompleted} / {overview.drillRequired} drills</p>
-                  </div>
-                  <div className="glass-card" style={{ padding: '1.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', justifyContent: 'center' }}>
-                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem' }}>Certifications</p>
-                    <p style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>{overview.certificationCount}</p>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{overview.certificationActive} active, {overview.certificationPending} pending</p>
-                  </div>
-                  {overview.isHighRisk && (
-                    <div className="glass-card" style={{ padding: '1.25rem', background: '#fef2f2', border: '1px solid #fecaca' }}>
-                      <p style={{ fontSize: '0.8rem', color: '#991b1b', marginBottom: '4px', fontWeight: 600 }}>High Risk</p>
-                      <p style={{ fontSize: '0.85rem', color: '#991b1b' }}>{overview.highRiskFlags.slice(0, 2).join('; ')}</p>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-              {role !== 'DISTRICT_VIEWER' && overview && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{ marginBottom: '2rem' }}
-                >
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Bell size={18} color="var(--primary)" /> Action Items
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                    {/* Pending Tasks */}
-                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
-                      <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Pending Tasks</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {overview.studentsPending > 0 ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#fffbeb', border: '1px solid #fde68a' }}>
-                            <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.875rem', color: '#92400e' }}>
-                              <strong>{overview.studentsPending}</strong> student{overview.studentsPending > 1 ? 's' : ''} missing health records
-                            </span>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                            <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.875rem', color: '#166534' }}>All student health records up to date</span>
-                          </div>
-                        )}
-                        {overview.certificationPending > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                            <AlertTriangle size={16} color="#2563eb" style={{ flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.875rem', color: '#1e40af' }}>
-                              <strong>{overview.certificationPending}</strong> certification{overview.certificationPending > 1 ? 's' : ''} awaiting approval
-                            </span>
-                          </div>
-                        )}
-                        {overview.highRiskFlags && overview.highRiskFlags.map((flag: string) => (
-                          <div key={flag} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca' }}>
-                            <AlertTriangle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.875rem', color: '#991b1b' }}>{flag}</span>
-                          </div>
-                        ))}
-                        {overview.studentsPending === 0 && overview.certificationPending === 0 && (!overview.highRiskFlags || overview.highRiskFlags.length === 0) && (
-                          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>No pending tasks</p>
-                        )}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1.5rem', width: '100%', fontSize: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                        <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{overview.eventsFinalized} Finalized</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} />
+                        <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{overview.eventsReady} Completed</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6' }} />
+                        <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{overview.eventsScheduled} Scheduled</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e2e8f0' }} />
+                        <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{overview.eventsPending} Pending</span>
                       </div>
                     </div>
-                    {/* Upcoming Events */}
-                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
-                      <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Upcoming Events</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {overview.upcomingEvents && overview.upcomingEvents.length > 0 ? (
-                          overview.upcomingEvents.map((ev: any) => (
-                            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', borderRadius: '10px', background: '#faf5ff', border: '1px solid #e9d5ff' }}>
-                              <Clock size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#581c87', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</p>
-                                <p style={{ fontSize: '0.75rem', color: '#7c3aed', margin: 0 }}>
-                                  {ev.scheduledAt ? new Date(ev.scheduledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date TBD'}
-                                </p>
+                  </div>
+
+                  {/* Action Panel - Moved here */}
+                  <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Bell size={16} color="var(--primary)" /> Action Panel
+                      </h3>
+                      <div style={{ display: 'flex', background: '#f8fafc', padding: '2px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                        <button 
+                          onClick={() => setActionPanelTab('tasks')}
+                          style={{ padding: '4px 8px', borderRadius: '8px', border: 'none', background: actionPanelTab === 'tasks' ? 'white' : 'transparent', color: actionPanelTab === 'tasks' ? '#0f172a' : '#64748b', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', boxShadow: actionPanelTab === 'tasks' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none' }}
+                        >
+                          Tasks
+                        </button>
+                        <button 
+                          onClick={() => setActionPanelTab('events')}
+                          style={{ padding: '4px 8px', borderRadius: '8px', border: 'none', background: actionPanelTab === 'events' ? 'white' : 'transparent', color: actionPanelTab === 'events' ? '#0f172a' : '#64748b', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', boxShadow: actionPanelTab === 'events' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none' }}
+                        >
+                          Events
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+                      {actionPanelTab === 'tasks' ? (
+                        <>
+                          {overview.studentsPending > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.6rem', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a' }}>
+                              <AlertTriangle size={14} color="#d97706" />
+                              <span style={{ fontSize: '0.75rem', color: '#92400e' }}><strong>{overview.studentsPending}</strong> missing records</span>
+                            </div>
+                          )}
+                          {overview.certificationPending > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.6rem', borderRadius: '8px', background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                              <AlertTriangle size={14} color="#2563eb" />
+                              <span style={{ fontSize: '0.75rem', color: '#1e40af' }}><strong>{overview.certificationPending}</strong> certs pending</span>
+                            </div>
+                          )}
+                          {!overview.studentsPending && !overview.certificationPending && (
+                            <p style={{ fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center', marginTop: '1rem' }}>No pending tasks</p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {overview.upcomingEvents?.slice(0, showAllEvents ? 8 : 3).map((ev: any) => (
+                            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.6rem', borderRadius: '8px', background: '#faf5ff', border: '1px solid #e9d5ff', transition: 'all 0.2s' }}>
+                              <Clock size={14} color="var(--primary)" />
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#581c87', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</p>
+                                {showAllEvents && ev.scheduledAt && (
+                                  <p style={{ fontSize: '0.65rem', color: '#7c3aed', margin: 0 }}>{new Date(ev.scheduledAt).toLocaleDateString()}</p>
+                                )}
                               </div>
                             </div>
-                          ))
-                        ) : (
-                          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>No upcoming events scheduled</p>
-                        )}
-                      </div>
+                          ))}
+                          {overview.upcomingEvents && overview.upcomingEvents.length > 3 && (
+                            <button 
+                              onClick={() => setShowAllEvents(!showAllEvents)}
+                              style={{ 
+                                background: 'transparent', 
+                                border: 'none', 
+                                color: 'var(--primary)', 
+                                fontSize: '0.75rem', 
+                                fontWeight: 700, 
+                                cursor: 'pointer', 
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                marginTop: '4px'
+                              }}
+                            >
+                              {showAllEvents ? 'Show Less' : `Show More (+${overview.upcomingEvents.length - 3})`}
+                            </button>
+                          )}
+                          {(!overview.upcomingEvents || overview.upcomingEvents.length === 0) && (
+                            <p style={{ fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center', marginTop: '1rem' }}>No upcoming events</p>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 </motion.div>
               )}
+
               {overview && overview.prevalence && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   style={{ marginBottom: '2rem' }}
                 >
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', color: '#0f172a' }}>Health Prevalence Overview</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
-                      <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', marginBottom: '1.25rem' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '1.5rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <HeartPulse size={22} className="text-purple-500" /> Screening Attendance Overview
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+                    {/* Dental Card */}
+                    <div className="glass-card hover-lift" style={{ padding: '1.75rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Smile size={24} />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 600 }}>Dental Health</p>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>{overview.prevalence.dentalHealthyPercent}%</span>
-                            <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>Healthy</span>
+                          <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '2px', fontWeight: 700, textTransform: 'uppercase' }}>Dental Screening</p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0f172a' }}>{Math.round((overview.prevalence.dentalScreened / (overview.totalStudents || 1)) * 100)}%</span>
+                            <span style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 700 }}>Attended</span>
                           </div>
                         </div>
                       </div>
-                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.75rem' }}>
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${overview.prevalence.dentalHealthyPercent}%` }}
-                          transition={{ duration: 1, ease: "easeOut" }}
-                          style={{ height: '100%', background: '#16a34a', borderRadius: '10px' }} 
-                        />
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '1rem' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.round((overview.prevalence.dentalScreened / (overview.totalStudents || 1)) * 100)}%` }} style={{ height: '100%', background: '#16a34a' }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+                        <span>Presence Rate</span>
+                        <span style={{ color: '#0f172a' }}>{overview.prevalence.dentalScreened} / {overview.totalStudents}</span>
                       </div>
                     </div>
-                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
-                      <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', marginBottom: '1.25rem' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+
+                    {/* Eye Card */}
+                    <div className="glass-card hover-lift" style={{ padding: '1.75rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Eye size={24} />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 600 }}>Eye Vision</p>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>{overview.prevalence.visionNormalPercent}%</span>
-                            <span style={{ fontSize: '0.85rem', color: '#2563eb', fontWeight: 600 }}>Normal</span>
+                          <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '2px', fontWeight: 700, textTransform: 'uppercase' }}>Eye Screening</p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0f172a' }}>{Math.round((overview.prevalence.visionScreened / (overview.totalStudents || 1)) * 100)}%</span>
+                            <span style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 700 }}>Attended</span>
                           </div>
                         </div>
                       </div>
-                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.75rem' }}>
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${overview.prevalence.visionNormalPercent}%` }}
-                          transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                          style={{ height: '100%', background: '#2563eb', borderRadius: '10px' }} 
-                        />
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '1rem' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.round((overview.prevalence.visionScreened / (overview.totalStudents || 1)) * 100)}%` }} style={{ height: '100%', background: '#2563eb' }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+                        <span>Presence Rate</span>
+                        <span style={{ color: '#0f172a' }}>{overview.prevalence.visionScreened} / {overview.totalStudents}</span>
                       </div>
                     </div>
-                    <div className="glass-card" style={{ padding: '1.5rem', background: 'white', border: '1px solid #f1f5f9' }}>
-                      <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', marginBottom: '1.25rem' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#fdf2f8', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+
+                    {/* BMI Card */}
+                    <div className="glass-card hover-lift" style={{ padding: '1.75rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: '#fdf2f8', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Activity size={24} />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 600 }}>BMI</p>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>{overview.prevalence.bmiNormalPercent}%</span>
-                            <span style={{ fontSize: '0.85rem', color: '#db2777', fontWeight: 600 }}>Correct</span>
+                          <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '2px', fontWeight: 700, textTransform: 'uppercase' }}>BMI Screening</p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0f172a' }}>{Math.round((overview.prevalence.bmiScreened / (overview.totalStudents || 1)) * 100)}%</span>
+                            <span style={{ fontSize: '0.8rem', color: '#db2777', fontWeight: 700 }}>Attended</span>
                           </div>
                         </div>
                       </div>
-                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.75rem' }}>
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${overview.prevalence.bmiNormalPercent}%` }}
-                          transition={{ duration: 1, ease: "easeOut", delay: 0.4 }}
-                          style={{ height: '100%', background: '#db2777', borderRadius: '10px' }} 
-                        />
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '1rem' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.round((overview.prevalence.bmiScreened / (overview.totalStudents || 1)) * 100)}%` }} style={{ height: '100%', background: '#db2777' }} />
                       </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+                        <span>Presence Rate</span>
+                        <span style={{ color: '#0f172a' }}>{overview.prevalence.bmiScreened} / {overview.totalStudents}</span>
+                      </div>
+                    </div>
+
+                  </div>
+                </motion.div>
+              )}
+
+              {overview && overview.totalStudents > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="delay-200"
+                  style={{ marginBottom: '2.5rem' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem', borderLeft: '4px solid #8b5cf6', paddingLeft: '1rem' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b' }}>Cohort Health Analytics</h3>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#8b5cf6', background: '#f5f3ff', padding: '2px 8px', borderRadius: '4px' }}>DISTRIBUTION VIEW</span>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '2rem' }}>
+                    {/* Dental PIE */}
+                    <div className="glass-card hover-lift" style={{ padding: '2.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                        <Smile size={20} />
+                      </div>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.25rem' }}>Dental Wellness</h4>
+                      <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '2rem' }}>Overall oral health distribution</p>
+                      
+                      <div style={{ height: '280px', width: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie 
+                              data={dentalPieData} dataKey="value" nameKey="name" 
+                              cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={8}
+                              stroke="none"
+                            >
+                              {dentalPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: 'var(--shadow-lg)', padding: '12px' }}
+                              itemStyle={{ fontSize: '14px', fontWeight: 600 }}
+                            />
+                            <Legend verticalAlign="bottom" height={40} iconType="circle" />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Vision PIE */}
+                    <div className="glass-card hover-lift" style={{ padding: '2.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                        <Eye size={20} />
+                      </div>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.25rem' }}>Vision Status</h4>
+                      <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '2rem' }}>Sight acuity & screening coverage</p>
+                      
+                      <div style={{ height: '280px', width: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie 
+                              data={visionPieData} dataKey="value" nameKey="name" 
+                              cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={8}
+                              stroke="none"
+                            >
+                              {visionPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: 'var(--shadow-lg)', padding: '12px' }}
+                              itemStyle={{ fontSize: '14px', fontWeight: 600 }}
+                            />
+                            <Legend verticalAlign="bottom" height={40} iconType="circle" />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* BMI PIE */}
+                    <div className="glass-card hover-lift" style={{ padding: '2.5rem', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#fdf2f8', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                        <Activity size={20} />
+                      </div>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.25rem' }}>Growth & BMI</h4>
+                      <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '2rem' }}>Weight category distribution</p>
+                      
+                      <div style={{ height: '280px', width: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie 
+                              data={bmiPieData} dataKey="value" nameKey="name" 
+                              cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={8}
+                              stroke="none"
+                            >
+                              {bmiPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: 'var(--shadow-lg)', padding: '12px' }}
+                              itemStyle={{ fontSize: '14px', fontWeight: 600 }}
+                            />
+                            <Legend verticalAlign="bottom" height={40} iconType="circle" />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              {overview && overview.classAttendance && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ marginBottom: '2rem' }}
+                >
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', color: '#0f172a' }}>Completion Status by Class</h3>
+                  <div className="glass-card" style={{ padding: '2rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                    <div style={{ height: '350px' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={overview.classAttendance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis 
+                            dataKey="class" 
+                            label={{ value: 'Class', position: 'insideBottom', offset: -5 }} 
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#64748b', fontSize: 12 }}
+                          />
+                          <YAxis 
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#64748b', fontSize: 12 }}
+                            allowDecimals={false}
+                          />
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                            cursor={{ fill: '#f8fafc' }}
+                          />
+                          <Legend iconType="circle" />
+                          <Bar dataKey="bmiPresent" name="BMI Present" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="eyePresent" name="Eye Present" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="dentalPresent" name="Dental Present" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                 </motion.div>
@@ -1079,6 +1353,8 @@ const Dashboard: React.FC = () => {
             <Certifications />
           ) : activeTab === 'ambassadors' ? (
             <Ambassadors />
+          ) : activeTab === 'requests' ? (
+            <EventRequests />
           ) : activeTab === 'staff' ? (
             <StaffManagement />
           ) : activeTab === 'available-schools' ? (
@@ -1095,15 +1371,25 @@ const Dashboard: React.FC = () => {
             </div>
             <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>Institution Not Linked</h2>
             <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '450px', margin: '0 auto 2.5rem', lineHeight: 1.6 }}>
-              It seems your account hasn&apos;t been connected to an official institution yet. Please complete your registration.
+              Your account isn&apos;t connected to an institution yet, or the session data is stale.
+              Try refreshing below — if the problem persists, please register your institution.
             </p>
-            <button 
-              onClick={() => navigate('/register-school')}
-              className="btn btn-primary" 
-              style={{ padding: '1rem 2.5rem', borderRadius: '18px', fontWeight: 800, fontSize: '1rem' }}
-            >
-              Complete Registration
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => refreshAll()}
+                className="btn"
+                style={{ padding: '1rem 2rem', borderRadius: '18px', fontWeight: 700, fontSize: '1rem', background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0' }}
+              >
+                🔄 Retry Loading
+              </button>
+              <button 
+                onClick={() => navigate('/register-school')}
+                className="btn btn-primary" 
+                style={{ padding: '1rem 2.5rem', borderRadius: '18px', fontWeight: 800, fontSize: '1rem' }}
+              >
+                Complete Registration
+              </button>
+            </div>
           </div>
         )}
 

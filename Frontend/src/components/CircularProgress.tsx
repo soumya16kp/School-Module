@@ -4,30 +4,33 @@ import { motion } from 'framer-motion';
 interface CircularProgressProps {
   percentage: number;
   pendingPercentage?: number;
+  extraPercentage?: number;
   size?: number;
   strokeWidth?: number;
   color?: string;
+  pendingColor?: string;
+  extraColor?: string;
   subLabel?: string;
 }
 
 export const CircularProgress: React.FC<CircularProgressProps> = ({
   percentage,
   pendingPercentage = 0,
+  extraPercentage = 0,
   size = 180,
   strokeWidth = 16,
-  color = '#10b981', // Emerald 500 for Done
+  color = '#10b981', // Emerald 500 for Done/Finalized
+  pendingColor = '#f59e0b', // Amber 500 for Ready/Pending Finalization
+  extraColor = '#3b82f6', // Blue 500 for Scheduled/Upcoming
   subLabel
 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * Math.PI; // Semi-circle circumference
   
-  // Offset calculation: circumference is the full arc length.
-  // percentage / 100 * circumference is the length of the segment.
-  const doneLength = (percentage / 100) * circumference;
-  
-  // To stack them:
-  // Done starts from 0 (left)
-  // Pending starts from Done end
+  // Weights for stacking:
+  // Level 1: Done (percentage)
+  // Level 2: Ready (pendingPercentage)
+  // Level 3: Scheduled (extraPercentage)
   
   return (
     <div style={{ position: 'relative', width: size, height: size / 2 + 20, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' }}>
@@ -41,23 +44,37 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           strokeLinecap="round"
         />
         
-        {/* Pending Arc (Drawn below Done or after depending on design) */}
-        {/* We'll draw total progress (Done + Pending) in Amber, then Done in Emerald on top */}
-        {(percentage + pendingPercentage) > 0 && (
+        {/* Level 3: Scheduled (drawn if total exists) */}
+        {(percentage + pendingPercentage + extraPercentage) > 0 && (
           <motion.path
             d={`M ${strokeWidth/2},${size/2} A ${radius},${radius} 0 0,1 ${size - strokeWidth/2},${size/2}`}
             fill="none"
-            stroke="#f59e0b" // Amber 500 for Pending
+            stroke={extraColor}
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: circumference - ((percentage + pendingPercentage) / 100) * circumference }}
+            animate={{ strokeDashoffset: circumference - ((percentage + pendingPercentage + extraPercentage) / 100) * circumference }}
             transition={{ duration: 1.2, ease: "easeOut" }}
             strokeLinecap="round"
           />
         )}
 
-        {/* Done Arc */}
+        {/* Level 2: Ready */}
+        {(percentage + pendingPercentage) > 0 && (
+          <motion.path
+            d={`M ${strokeWidth/2},${size/2} A ${radius},${radius} 0 0,1 ${size - strokeWidth/2},${size/2}`}
+            fill="none"
+            stroke={pendingColor}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: circumference - ((percentage + pendingPercentage) / 100) * circumference }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            strokeLinecap="round"
+          />
+        )}
+ 
+        {/* Level 1: Done/Finalized */}
         {percentage > 0 && (
           <motion.path
             d={`M ${strokeWidth/2},${size/2} A ${radius},${radius} 0 0,1 ${size - strokeWidth/2},${size/2}`}
@@ -66,8 +83,8 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: circumference - doneLength }}
-            transition={{ duration: 1, ease: "easeOut" }}
+            animate={{ strokeDashoffset: circumference - (percentage / 100) * circumference }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
             strokeLinecap="round"
           />
         )}

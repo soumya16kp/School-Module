@@ -22,8 +22,7 @@ router.get("/overview", async (req: AuthRequest, res) => {
     if (!school) {
       return res.status(404).json({ message: "School not found" });
     }
-    const academicYear =
-      (req.query.academicYear as string) || school.academicYear || "2024-2025";
+    const academicYear = (req.query.academicYear as string);
     
     let classNum = req.query.classNum ? parseInt(req.query.classNum as string) : undefined;
     let section = req.query.section as string | undefined;
@@ -36,6 +35,7 @@ router.get("/overview", async (req: AuthRequest, res) => {
     const overview = await DashboardService.getOverview(school.id, academicYear, { classNum, section });
     res.json(overview);
   } catch (err: any) {
+    console.log(err)
     res.status(500).json({ message: err.message || "Server error" });
   }
 });
@@ -46,7 +46,7 @@ router.get("/district-overview", async (req: AuthRequest, res) => {
     if (!req.user || !canViewHealth(req.user.role)) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    const academicYear = (req.query.academicYear as string) || "2024-2025";
+    const academicYear = (req.query.academicYear as string);
     const data = await DashboardService.getDistrictOverview(academicYear);
     res.json({ academicYear, schools: data });
   } catch (err: any) {
@@ -64,7 +64,7 @@ router.get("/export", async (req: AuthRequest, res) => {
     if (!school) return res.status(404).json({ message: "School not found" });
 
     const format = (req.query.format as string) || "csv";
-    const academicYear = req.query.academicYear as string | undefined;
+    const academicYear = (req.query.academicYear as string);
     let classNum = req.query.class != null ? parseInt(String(req.query.class)) : undefined;
     let section = req.query.section as string | undefined;
     const domain = (req.query.domain as string) || "all";

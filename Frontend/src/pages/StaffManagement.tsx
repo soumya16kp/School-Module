@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { staffService } from '../services/api';
-import { Users, UserPlus, Trash2, Pencil, Phone, Mail, GraduationCap, Shield, UserCheck } from 'lucide-react';
+import { Users, UserPlus, Trash2, Pencil, Phone, Mail, GraduationCap, Shield, UserCheck, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const StaffManagement: React.FC = () => {
@@ -130,12 +130,27 @@ const StaffManagement: React.FC = () => {
                   >
                     <td style={{ padding: '1.25rem 1.5rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: member.role === 'CLASS_TEACHER' ? '#eff6ff' : '#f0fdf4', color: member.role === 'CLASS_TEACHER' ? '#2563eb' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {member.role === 'CLASS_TEACHER' ? <UserCheck size={20} /> : <Shield size={20} />}
+                        <div style={{ 
+                          width: '40px', 
+                          height: '40px', 
+                          borderRadius: '12px', 
+                          background: member.role === 'CLASS_TEACHER' ? '#eff6ff' : 
+                                     ['SCHOOL_ADMIN', 'PRINCIPAL'].includes(member.role) ? '#fef2f2' :
+                                     member.role === 'NURSE_COUNSELLOR' ? '#f0fdf4' : '#f8fafc', 
+                          color: member.role === 'CLASS_TEACHER' ? '#2563eb' : 
+                                 ['SCHOOL_ADMIN', 'PRINCIPAL'].includes(member.role) ? '#ef4444' :
+                                 member.role === 'NURSE_COUNSELLOR' ? '#16a34a' : '#64748b', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center' 
+                        }}>
+                          {member.role === 'CLASS_TEACHER' ? <UserCheck size={20} /> : 
+                           ['SCHOOL_ADMIN', 'PRINCIPAL'].includes(member.role) ? <Shield size={20} /> :
+                           member.role === 'NURSE_COUNSELLOR' ? <Activity size={20} /> : <Users size={20} />}
                         </div>
                         <div>
                           <div style={{ fontWeight: 700, color: '#0f172a' }}>{member.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>{member.role.replace('_', ' ')}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>{member.role.replace(/_/g, ' ')}</div>
                         </div>
                       </div>
                     </td>
@@ -224,6 +239,10 @@ const StaffManagement: React.FC = () => {
                   <label>Role</label>
                   <select value={editFormData.role} onChange={e => setEditFormData({ ...editFormData, role: e.target.value })}>
                     <option value="CLASS_TEACHER">Class Teacher</option>
+                    <option value="SCHOOL_ADMIN">School Admin</option>
+                    <option value="PRINCIPAL">Principal</option>
+                    <option value="NURSE_COUNSELLOR">Nurse / Counsellor</option>
+                    <option value="DISTRICT_VIEWER">District Viewer</option>
                     <option value="STAFF">General Staff</option>
                   </select>
                 </div>
@@ -289,6 +308,10 @@ const StaffManagement: React.FC = () => {
                   <label>Role</label>
                   <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
                     <option value="CLASS_TEACHER">Class Teacher</option>
+                    <option value="SCHOOL_ADMIN">School Admin</option>
+                    <option value="PRINCIPAL">Principal</option>
+                    <option value="NURSE_COUNSELLOR">Nurse / Counsellor</option>
+                    <option value="DISTRICT_VIEWER">District Viewer</option>
                     <option value="STAFF">General Staff</option>
                   </select>
                 </div>

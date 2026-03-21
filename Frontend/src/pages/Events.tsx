@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { eventService, schoolService, ambassadorService } from '../services/api';
+import { eventService, schoolService, ambassadorService, eventRequestService, childService, healthService } from '../services/api';
 import { useSchoolData } from '../context/SchoolDataContext';
 import { 
   XCircle, Info, LayoutList, Calendar as CalendarIconUI, 
   ShieldCheck, Search, Users, Lock, CheckCircle, ClipboardCheck, 
   Trash2, Image as ImageIcon, HeartPulse, Brain, Salad, 
-  Flame, Plus, Syringe, Sparkles, MapPin, Clock, ChevronDown, ChevronUp
+  Flame, Plus, Syringe, Sparkles, Clock, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalendarView from '../components/CalendarView';
@@ -47,20 +47,23 @@ const Events: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [showScheduleModal, setShowScheduleModal] = useState<any>(null);
   const [selectedAmbassadorId, setSelectedAmbassadorId] = useState('');
+  const [personName, setPersonName] = useState('');
+  const [personContact, setPersonContact] = useState('');
+  const [personDetails, setPersonDetails] = useState('');
   const [ambassadors, setAmbassadors] = useState<any[]>([]);
 
   // Attendance states
   const [attendanceModalEvent, setAttendanceModalEvent] = useState<any>(null);
   const [attSearch, setAttSearch] = useState('');
   const [attFilterClass, setAttFilterClass] = useState('');
-  const [attFilterSection, setAttFilterSection] = useState('');
-  const [studentStatuses, setStudentStatuses] = useState<Record<string, string>>({});
+  const [studentStatuses, setStudentStatuses] = useState<Record<string, any>>({});
   const [attendanceForm, setAttendanceForm] = useState({ notes: '' });
 
   const [uploadingForEvent, setUploadingForEvent] = useState<number | null>(null);
   const [listSearch, setListSearch] = useState('');
   const [listFilter, setListFilter] = useState<'all' | 'upcoming' | 'ready' | 'finalized'>('all');
   const [expandedEvents, setExpandedEvents] = useState<Record<number, boolean>>({});
+  const [children, setChildren] = useState<any[]>([]);
 
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -68,6 +71,7 @@ const Events: React.FC = () => {
 
   useEffect(() => {
     ambassadorService.getAll().then(setAmbassadors);
+    childService.getAll().then((data: any[]) => setChildren(data || []));
   }, []);
 
   const totalCollected = school?.donations?.reduce((sum: number, d: any) => sum + Number(d.amount || 0), 0) || 0;
@@ -76,7 +80,7 @@ const Events: React.FC = () => {
 
   const handleAssignProgram = async (prog: any, scheduledAt: string) => {
     try {
-      await eventService.create({
+      const evt = await eventService.create({
         type: prog.type,
         title: prog.title,
         description: prog.description,
@@ -84,11 +88,25 @@ const Events: React.FC = () => {
         scheduledAt: new Date(scheduledAt).toISOString(),
         ambassadorId: selectedAmbassadorId ? parseInt(selectedAmbassadorId) : undefined
       });
+
+      // Create a companion request for WOMBTO18
+      await eventRequestService.create({
+        eventId: evt.id,
+        schoolId: school!.id,
+        personName,
+        personContact,
+        personDetails
+      });
+
       setShowScheduleModal(null);
       setSelectedAmbassadorId('');
+      setPersonName('');
+      setPersonContact('');
+      setPersonDetails('');
       refreshEvents(academicYear);
     } catch (error) {
-      alert('Error scheduling program');
+      console.error(error);
+      alert('Error scheduling program and creating request');
     }
   };
 
@@ -179,32 +197,97 @@ const Events: React.FC = () => {
     setAttendanceForm({ notes: ev.attendanceJson?.notes || '' });
   };
 
+  const updateStudentDetail = (childId: number, field: string, value: any) => {
+    setStudentStatuses(prev => {
+      const current = typeof prev[childId] === 'object' ? prev[childId] : { status: prev[childId] ?? 'Present' };
+      return { ...prev, [childId]: { ...current, [field]: value } };
+    });
+  };
+
   const toggleStudentStatus = (childId: number) => {
-    setStudentStatuses(prev => ({
-      ...prev,
-      [childId]: prev[childId] === 'Absent' ? 'Present' : 'Absent'
-    }));
+    setStudentStatuses(prev => {
+      const current = typeof prev[childId] === 'object' ? prev[childId] : { status: prev[childId] ?? 'Present' };
+      const newStatus = current.status === 'Present' ? 'Absent' : 'Present';
+      return { ...prev, [childId]: { ...current, status: newStatus } };
+    });
   };
 
   const handleAttendanceSubmit = async () => {
     if (!attendanceModalEvent) return;
     
-    const studentsList = school?.children || [];
-    const presentCount = studentsList.filter((c: any) => studentStatuses[c.id] !== 'Absent').length;
+    const studentEntries = Object.values(studentStatuses);
+    const presentCount = studentEntries.filter((s: any) => (typeof s === 'string' ? s !== 'Absent' : s.status !== 'Absent')).length;
 
     try {
+      // 1. Update the event attendance
       await eventService.update(attendanceModalEvent.id, {
+        completedAt: new Date().toISOString(),
         attendanceJson: {
           totalPresent: presentCount,
-          totalExpected: studentsList.length,
+          totalExpected: filteredChildren.length,
           notes: attendanceForm.notes,
           studentStatuses
         }
       });
+
+      // 2. Sync with HealthRecords if it's a primary screening
+      const academicYear = attendanceModalEvent.academicYear || '2024-2025';
+      const isBmiEvent = attendanceModalEvent.type === 'BMI_ASSESSMENT';
+      const isEyeEvent = attendanceModalEvent.type === 'VISION_SCREENING';
+      const isDentalEvent = attendanceModalEvent.type === 'DENTAL_SCREENING';
+      const isGeneral = attendanceModalEvent.type === 'GENERAL_CHECKUP';
+
+      if (isBmiEvent || isEyeEvent || isDentalEvent || isGeneral) {
+        for (const child of filteredChildren) {
+          const detail: any = typeof studentStatuses[child.id] === 'object' 
+            ? studentStatuses[child.id] 
+            : { status: studentStatuses[child.id] || 'Present' };
+
+          const healthPayload: any = {
+            academicYear,
+            checkupDate: new Date().toISOString(),
+          };
+
+          if (isBmiEvent) {
+            healthPayload.bmiStatus = detail.status;
+            if (detail.status === 'Present') {
+              healthPayload.height = detail.height ?? '';
+              healthPayload.weight = detail.weight ?? '';
+            }
+          }
+          if (isEyeEvent) {
+            healthPayload.eyeStatus = detail.status;
+            if (detail.status === 'Present') {
+              healthPayload.eyeCheckup = detail.status === 'Present' ? 'Done' : 'Pending';
+              healthPayload.eyeVisionLeft = detail.eyeVisionLeft ?? '6/6';
+              healthPayload.eyeVisionRight = detail.eyeVisionRight ?? '6/6';
+            }
+          }
+          if (isDentalEvent) {
+            healthPayload.dentalStatus = detail.status;
+            if (detail.status === 'Present') {
+              healthPayload.dentalCheckup = detail.status === 'Present' ? 'Done' : 'Pending';
+              healthPayload.dentalCariesIndex = detail.dentalCariesIndex ?? 0;
+              healthPayload.dentalOverallHealth = detail.dentalOverallHealth ?? 'Healthy';
+            }
+          }
+          
+          try {
+             const existingRecords = await healthService.getRecords(child.id);
+             const thisYear = existingRecords.find((r: any) => r.academicYear === academicYear);
+             if (thisYear) {
+               await healthService.updateRecord(child.id, thisYear.id, healthPayload);
+             } else {
+               await healthService.addRecord(child.id, healthPayload);
+             }
+          } catch (e) { console.error(`Failed to sync health for child ${child.id}`, e); }
+        }
+      }
+
       setAttendanceModalEvent(null);
-      refreshEvents(academicYear);
+      refreshEvents(attendanceModalEvent.academicYear || '2024-2025');
     } catch (error) {
-      alert('Error saving attendance');
+      alert('Error saving attendance and health records');
     }
   };
 
@@ -234,15 +317,13 @@ const Events: React.FC = () => {
     }
   };
 
-  const uniqueClasses = Array.from(new Set(school?.children?.map((c: any) => c.class).filter((v: any) => v !== undefined && v !== null) || [])).sort();
-  const uniqueSections = Array.from(new Set(school?.children?.map((c: any) => c.section).filter(Boolean) || [])).sort();
+  const uniqueClasses = Array.from(new Set(children.map((c: any) => c.class).filter((v: any) => v !== undefined && v !== null))).sort() as any[];
 
-  const filteredChildren = (school?.children || []).filter((child: any) => {
+  const filteredChildren = children.filter((child: any) => {
     const matchesSearch = child.name.toLowerCase().includes(attSearch.toLowerCase()) || 
                           child.registrationNo.toLowerCase().includes(attSearch.toLowerCase());
     const matchesClass = !attFilterClass || String(child.class) === attFilterClass;
-    const matchesSection = !attFilterSection || child.section === attFilterSection;
-    return matchesSearch && matchesClass && matchesSection;
+    return matchesSearch && matchesClass;
   });
 
   if (loading) return <div className="page-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
@@ -614,11 +695,17 @@ const Events: React.FC = () => {
                                     </div>
                                   </div>
 
-                                  {Array.isArray(ev.images) && ev.images.length > 0 && (
-                                    <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden' }}>
-                                      <Carousel images={ev.images} height="400px" borderRadius="24px" />
-                                    </div>
-                                  )}
+                                  {(() => {
+                                    const imgs = typeof ev.images === 'string' ? JSON.parse(ev.images) : ev.images;
+                                    if (Array.isArray(imgs) && imgs.length > 0) {
+                                      return (
+                                        <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', marginTop: '1.5rem', marginBottom: '1rem' }}>
+                                          <Carousel images={imgs} height="400px" borderRadius="24px" />
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
 
                                   {isManagement && ev.completedAt && (
                                     <div style={{ marginTop: '0.5rem' }}>
@@ -748,8 +835,38 @@ const Events: React.FC = () => {
                   <label style={{ fontWeight: 700, marginBottom: '8px', display: 'block' }}>Date & Time</label>
                   <input name="scheduledAt" type="datetime-local" required className="form-control" style={{ borderRadius: '12px', padding: '12px', height: 'auto' }} />
                 </div>
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label style={{ fontWeight: 700, marginBottom: '8px', display: 'block' }}>Recommend Official / Person (Optional)</label>
+                  <input 
+                    placeholder="Name of professional"
+                    className="form-control" 
+                    style={{ borderRadius: '12px', padding: '12px', height: 'auto', marginBottom: '8px' }}
+                    value={personName}
+                    onChange={(e) => setPersonName(e.target.value)}
+                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <input 
+                      placeholder="Contact No"
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '12px', height: 'auto' }}
+                      value={personContact}
+                      onChange={(e) => setPersonContact(e.target.value)}
+                    />
+                    <input 
+                      placeholder="Details/Reg No"
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '12px', height: 'auto' }}
+                      value={personDetails}
+                      onChange={(e) => setPersonDetails(e.target.value)}
+                    />
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>
+                    * This person will be reviewed by WOMBTO18 officials for approval.
+                  </p>
+                </div>
+
                 <div className="form-group" style={{ marginBottom: '2rem' }}>
-                  <label style={{ fontWeight: 700, marginBottom: '8px', display: 'block' }}>Assign Ambassador</label>
+                  <label style={{ fontWeight: 700, marginBottom: '8px', display: 'block' }}>Or Select from Global Ambassadors</label>
                   <select 
                     value={selectedAmbassadorId} 
                     onChange={(e) => setSelectedAmbassadorId(e.target.value)}
@@ -762,7 +879,7 @@ const Events: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', borderRadius: '16px', fontWeight: 800 }}>Confirm</button>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', borderRadius: '16px', fontWeight: 800 }}>Schedule & Request Approval</button>
               </form>
             </motion.div>
           </div>
@@ -795,20 +912,71 @@ const Events: React.FC = () => {
               <div style={{ padding: '1.5rem 2rem', overflowY: 'auto', flex: 1 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                   {filteredChildren.map((child: any) => {
-                    const isAbsent = studentStatuses[child.id] === 'Absent';
+                    const detail = studentStatuses[child.id] as any || { status: 'Present' };
+                    const isAbsent = (typeof detail === 'string' ? detail === 'Absent' : detail.status === 'Absent');
+                    const evType = attendanceModalEvent.type;
+
                     return (
                       <div 
                         key={child.id}
-                        onClick={() => toggleStudentStatus(child.id)}
-                        style={{ padding: '1rem', borderRadius: '16px', border: '2px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: isAbsent ? '#fffafb' : 'white' }}
+                        className="glass-card"
+                        style={{ padding: '1.25rem', borderRadius: '24px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '1rem', background: isAbsent ? '#fffafb' : 'white', transition: 'all 0.2s' }}
                       >
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{child.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Cls {child.class}-{child.section}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{child.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Cls {child.class}-{child.section} | {child.registrationNo}</div>
+                          </div>
+                          <button 
+                            onClick={() => toggleStudentStatus(child.id)}
+                            style={{ padding: '6px 16px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 800, background: isAbsent ? '#ef4444' : '#10b981', color: 'white', border: 'none', cursor: 'pointer' }}
+                          >
+                            {isAbsent ? 'ABSENT' : 'PRESENT'}
+                          </button>
                         </div>
-                        <div style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800, background: isAbsent ? '#ef4444' : '#10b981', color: 'white' }}>
-                          {isAbsent ? 'Absent' : 'Present'}
-                        </div>
+
+                        {!isAbsent && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '16px' }}>
+                             {evType === 'BMI_ASSESSMENT' && (
+                               <>
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                   <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Height (cm)</label>
+                                   <input type="number" value={detail.height || ''} onChange={e => updateStudentDetail(child.id, 'height', e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }} />
+                                 </div>
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                   <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Weight (kg)</label>
+                                   <input type="number" value={detail.weight || ''} onChange={e => updateStudentDetail(child.id, 'weight', e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }} />
+                                 </div>
+                               </>
+                             )}
+                             {evType === 'DENTAL_SCREENING' && (
+                               <>
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                   <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Cavities</label>
+                                   <input type="number" value={detail.dentalCariesIndex || ''} onChange={e => updateStudentDetail(child.id, 'dentalCariesIndex', e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }} />
+                                 </div>
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                   <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Health</label>
+                                   <select value={detail.dentalOverallHealth || 'Healthy'} onChange={e => updateStudentDetail(child.id, 'dentalOverallHealth', e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.8rem' }}>
+                                      <option>Healthy</option><option>Good</option><option>Fair</option><option>Poor</option>
+                                   </select>
+                                 </div>
+                               </>
+                             )}
+                             {evType === 'VISION_SCREENING' && (
+                               <>
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                   <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Left Eye</label>
+                                   <input type="text" value={detail.eyeVisionLeft || '6/6'} onChange={e => updateStudentDetail(child.id, 'eyeVisionLeft', e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }} />
+                                 </div>
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                   <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Right Eye</label>
+                                   <input type="text" value={detail.eyeVisionRight || '6/6'} onChange={e => updateStudentDetail(child.id, 'eyeVisionRight', e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }} />
+                                 </div>
+                               </>
+                             )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

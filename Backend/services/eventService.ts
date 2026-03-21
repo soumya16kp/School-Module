@@ -107,23 +107,48 @@ export class EventService {
     if (data.attendanceJson && (data.attendanceJson as any).studentStatuses) {
       const statuses = (data.attendanceJson as any).studentStatuses;
       const evt = await prisma.event.findFirst({ where: { id, schoolId }, select: { type: true, academicYear: true } });
-      const typesMap: Record<string, string> = {
-        'MENTAL_WELLNESS': 'mentalWellness',
-        'IMMUNIZATION': 'immunization',
-        'IMMUNIZATION_DEWORMING': 'immunization',
-        'NUTRITION_SESSION': 'nutrition',
-        'HYGIENE_WELLNESS': 'hygiene'
-      };
+      
+      if (evt) {
+        await Promise.all(
+          Object.entries(statuses).map(async ([childId, status]) => {
+            const cid = parseInt(childId);
+            const attendanceStatus = status as string;
+            
+            // 1. Update overall student status
+            await prisma.child.update({
+              where: { id: cid, schoolId },
+              data: { status: attendanceStatus === 'Present' ? 'Done' : 'Absent' }
+            }).catch(() => {});
 
-      await Promise.all(
-        Object.entries(statuses).map(async ([childId, status]) => {
-          const cid = parseInt(childId);
-          await prisma.child.update({
-            where: { id: cid, schoolId },
-            data: { status: status === 'Present' ? 'Done' : 'Absent' }
-          }).catch(() => {});
-        })
-      );
+            // 2. Sync with HealthRecord if it's a medical event
+            let updateData: any = {};
+            if (evt.type === 'BMI_ASSESSMENT' || evt.type === 'GENERAL_CHECKUP') updateData.bmiStatus = attendanceStatus;
+            if (evt.type === 'DENTAL_SCREENING' || evt.type === 'GENERAL_CHECKUP') updateData.dentalStatus = attendanceStatus;
+            if (evt.type === 'VISION_SCREENING' || evt.type === 'GENERAL_CHECKUP') updateData.eyeStatus = attendanceStatus;
+
+            if (Object.keys(updateData).length > 0) {
+              const record = await prisma.healthRecord.findFirst({
+                where: { childId: cid, academicYear: evt.academicYear }
+              });
+
+              if (record) {
+                await prisma.healthRecord.update({
+                  where: { id: record.id },
+                  data: updateData
+                });
+              } else {
+                await prisma.healthRecord.create({
+                  data: {
+                    childId: cid,
+                    academicYear: evt.academicYear,
+                    ...updateData
+                  }
+                });
+              }
+            }
+          })
+        );
+      }
     }
 
     // If loggingCompletedAt is being set, trigger invoice generation

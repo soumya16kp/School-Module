@@ -164,7 +164,7 @@ router.put(
         payload.reportFile = req.file.filename;
       }
 
-      const record = await HealthService.updateRecord(recordId, payload);
+      const record = await HealthService.updateRecord(recordId, payload, req.user.id);
       res.status(200).json(record);
     } catch (err: any) {
       res.status(400).json({ error: err.message || "Bad request" });

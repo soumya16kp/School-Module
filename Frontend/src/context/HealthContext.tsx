@@ -8,6 +8,7 @@ interface HealthContextType {
   fetchChildData: (childId: number) => Promise<void>;
   addHealthRecord: (childId: number, data: any) => Promise<void>;
   updateHealthRecord: (childId: number, recordId: number, data: any) => Promise<void>;
+  toggleAttendance: (childId: number, eventType: string, currentStatus: string) => Promise<void>;
 }
 
 const HealthContext = createContext<HealthContextType | undefined>(undefined);
@@ -56,8 +57,24 @@ export const HealthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const toggleAttendance = async (childId: number, eventType: string, currentStatus: string) => {
+    try {
+      // Toggle logic: mapping UI "Attended"/"Scheduled"/"Absent"/"Pending" to Backend "Present"/"Absent"
+      // If currently Attended/Present, toggle to Absent.
+      // If currently Absent/Scheduled/Pending/Not Scheduled, toggle to Present.
+      const isCurrentlyPresent = ['Attended', 'Present', 'Done'].includes(currentStatus);
+      const newStatus = isCurrentlyPresent ? 'Absent' : 'Present';
+      
+      await childService.updateAttendance(childId, eventType, newStatus);
+      await fetchChildData(childId); // Refresh to show updated status
+    } catch (error) {
+      console.error('Error toggling attendance:', error);
+      throw error;
+    }
+  };
+
   return (
-    <HealthContext.Provider value={{ child, healthRecords, loading, fetchChildData, addHealthRecord, updateHealthRecord }}>
+    <HealthContext.Provider value={{ child, healthRecords, loading, fetchChildData, addHealthRecord, updateHealthRecord, toggleAttendance }}>
       {children}
     </HealthContext.Provider>
   );

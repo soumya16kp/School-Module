@@ -129,6 +129,10 @@ export const childService = {
     // Assuming backend returns child details, let's create a getById in childRoutes too if not exists. Wait, child details can just be passed via state or fetched.
     const response = await api.get(`/children/${id}`); // We will make sure this exists in backend
     return response.data;
+  },
+  updateAttendance: async (childId: number, eventType: string, status: string) => {
+    const response = await api.post(`/children/${childId}/attendance`, { eventType, status });
+    return response.data;
   }
 };
 
@@ -383,5 +387,19 @@ export const staffService = {
   },
   remove: async (id: number) => {
     await api.delete(`/staff/${id}`);
+  }
+};
+export const eventRequestService = {
+  list: async () => {
+    const response = await api.get('/event-requests');
+    return response.data;
+  },
+  create: async (data: { eventId: number; schoolId: number; personName?: string; personContact?: string; personDetails?: string }) => {
+    const response = await api.post('/event-requests', data);
+    return response.data;
+  },
+  updateStatus: async (id: number, status: 'APPROVED' | 'REJECTED', officialNotes?: string) => {
+    const response = await api.patch(`/event-requests/${id}/status`, { status, officialNotes });
+    return response.data;
   }
 };

@@ -12,20 +12,26 @@ export class DashboardService {
     const [children, healthRecords, events, certifications] = await Promise.all([
       prisma.child.findMany({ 
         where: childWhere, 
-        select: { id: true, status: true } 
+        select: { id: true, status: true, class: true } 
       }),
       prisma.healthRecord.findMany({
         where: { 
           child: childWhere, 
-          academicYear 
+          ...(academicYear && { academicYear })
         }
       }),
       prisma.event.findMany({
-        where: { schoolId, academicYear },
+        where: { 
+          schoolId,
+          ...(academicYear && { academicYear })
+        },
         orderBy: { scheduledAt: "asc" },
       }),
       prisma.certification.findMany({
-        where: { schoolId, academicYear },
+        where: { 
+          schoolId,
+          ...(academicYear && { academicYear })
+        },
       }),
     ]);
 
@@ -74,13 +80,16 @@ export class DashboardService {
         r.visionReferralNeeded === true
     ).length;
     
-    const bmiHigh = screenedRecords.filter(
+    const bmiRiskCount = screenedRecords.filter(
       (r: any) => r.bmiCategory && ["OVERWEIGHT", "OBESE", "AT RISK"].includes(r.bmiCategory.toUpperCase())
     ).length;
 
-    // Healthy (Explicitly marked and NO referral)
     const bmiNormal = screenedRecords.filter(
       (r: any) => r.bmiCategory && r.bmiCategory.toUpperCase() === "NORMAL"
+    ).length;
+
+    const bmiUnderweight = screenedRecords.filter(
+      (r: any) => r.bmiCategory && r.bmiCategory.toUpperCase() === "UNDERWEIGHT"
     ).length;
 
     const dentalHealthy = screenedRecords.filter(
@@ -108,7 +117,7 @@ export class DashboardService {
     // We still use total screened as baseline for global institutional risk
     const dentalPrevalenceRaw = screened >= MIN_SCREENED ? Math.round((dentalFlagged / screened) * 100) : null;
     const visionPrevalenceRaw = screened >= MIN_SCREENED ? Math.round((visionFlagged / screened) * 100) : null;
-    const bmiPrevalenceRaw = screened >= MIN_SCREENED ? Math.round((bmiHigh / screened) * 100) : null;
+    const bmiPrevalenceRaw = screened >= MIN_SCREENED ? Math.round((bmiRiskCount / screened) * 100) : null;
 
     // High-risk flags (OQ-05)
     const highRiskFlags: string[] = [];
@@ -139,6 +148,40 @@ export class DashboardService {
     const certActive = certifications.filter((c: any) => c.status === "ACTIVE").length;
     const certPending = certifications.filter((c: any) => c.status === "PENDING").length;
 
+    // Event stats - Based on a target of 9 required programs
+    const eventsTarget = 9;
+    const eventsCompleted = events.filter((e: any) => e.completedAt != null).length;
+    const eventsFinalized = events.filter((e: any) => e.loggingCompletedAt != null).length;
+    const eventsReady = events.filter((e: any) => e.completedAt != null && e.loggingCompletedAt == null).length;
+    const eventsScheduled = events.filter((e: any) => e.scheduledAt != null && e.completedAt == null).length;
+    // Pending is the target minus those already completed
+    const eventsPending = Math.max(0, eventsTarget - eventsCompleted);
+
+    // Class-wise Attendance (New)
+    const classAttendance: any[] = [];
+    const classNumbers = [...new Set(children.map((c: any) => c.class))].sort((a: any, b: any) => a - b);
+
+    for (const cNum of classNumbers) {
+      const classChildren = children.filter((c: any) => c.class === cNum);
+      const classChildrenIds = new Set(classChildren.map((c: any) => c.id));
+      const classRecords = validRecords.filter((r: any) => classChildrenIds.has(r.childId));
+
+      const bmiPresent = classRecords.filter((r: any) => ["Present", "Done", "Completed"].includes(r.bmiStatus || "")).length;
+      const eyePresent = classRecords.filter((r: any) => ["Present", "Done", "Completed"].includes(r.eyeStatus || "")).length;
+      const dentalPresent = classRecords.filter((r: any) => ["Present", "Done", "Completed"].includes(r.dentalStatus || "")).length;
+
+      classAttendance.push({
+        class: cNum,
+        total: classChildren.length,
+        bmiPresent,
+        bmiAbsent: classChildren.length - bmiPresent,
+        eyePresent,
+        eyeAbsent: classChildren.length - eyePresent,
+        dentalPresent,
+        dentalAbsent: classChildren.length - dentalPresent,
+      });
+    }
+
     return {
       schoolId,
       academicYear,
@@ -152,20 +195,31 @@ export class DashboardService {
       drillCompleted,
       drillRequired,
       drillPercent,
+      eventsCompleted,
+      eventsFinalized,
+      eventsReady,
+      eventsScheduled,
+      eventsPending,
+      eventsTarget,
       certificationCount: certifications.length,
       certificationActive: certActive,
       certificationPending: certPending,
       highRiskFlags,
       isHighRisk,
       upcomingEvents,
+      classAttendance,
       prevalence: {
         dental: dentalPrevalenceRaw,
         vision: visionPrevalenceRaw,
-        bmiHigh: bmiPrevalenceRaw,
+        bmiHigh: bmiPrevalenceRaw, // Percentage
         screened,
         dentalHealthy,
+        dentalIssues: dentalFlagged,
         visionNormal,
+        visionIssues: visionFlagged,
         bmiNormal,
+        bmiRiskTotal: bmiRiskCount,
+        bmiUnderweight,
         dentalScreened,
         visionScreened,
         bmiScreened,
@@ -191,7 +245,7 @@ export class DashboardService {
 
     const overviews = await Promise.all(
       schools.map(async (s: any) => {
-        const ay = academicYear || s.academicYear || "2024-2025";
+        const ay = academicYear || s.academicYear;
         const overview = await DashboardService.getOverview(s.id, ay);
         return {
           ...s,

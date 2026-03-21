@@ -204,4 +204,25 @@ router.put("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
   }
 });
 
+// Toggle attendance for a specific event type
+router.post("/:id/attendance", authenticateJWT, async (req: AuthRequest, res: any) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    const school = await SchoolService.getSchoolByUserId(req.user.id);
+    if (!school) return res.status(404).json({ error: "School not found" });
+
+    const childId = parseInt(req.params.id as string);
+    const { eventType, status } = req.body;
+
+    if (!eventType || !status) {
+      return res.status(400).json({ error: "eventType and status are required" });
+    }
+
+    const updatedEvent = await ChildService.updateAttendance(childId, school.id, eventType, status);
+    res.json({ success: true, event: updatedEvent });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

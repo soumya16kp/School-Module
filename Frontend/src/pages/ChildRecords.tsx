@@ -35,7 +35,7 @@ const ChildRecords: React.FC = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [bulkCardLoading, setBulkCardLoading] = useState(false);
   const [bulkCardFilters, setBulkCardFilters] = useState({ class: '' as string, section: '' });
-  const [exportFilters, setExportFilters] = useState({ format: 'csv' as 'csv' | 'pdf', academicYear: '2024-2025', class: '' as string, section: '', domain: 'all' });
+  const [exportFilters, setExportFilters] = useState({ format: 'csv' as 'csv' | 'pdf', academicYear: '', class: '' as string, section: '', domain: 'all' });
   const [formData, setFormData] = useState({
     name: '',
     class: '',
@@ -128,14 +128,6 @@ const ChildRecords: React.FC = () => {
     }
   };
 
-  const updateStatus = async (id: number, status: string) => {
-    try {
-      await childService.updateStatus(id, status);
-      fetchChildren();
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleExport = async () => {
     setExportLoading(true);
@@ -212,20 +204,6 @@ const ChildRecords: React.FC = () => {
   const uniqueClasses = Array.from(new Set(children.map((c: any) => c.class))).sort((a, b) => a - b);
   const uniqueSections = Array.from(new Set(children.map((c: any) => c.section))).sort();
 
-  const StatusBadge = ({ status, onClick }: { status: string, onClick?: (e: any) => void }) => {
-    let bg = '#fef3c7', color = '#92400e', Icon = Clock;
-    if (status === 'Done') { bg = '#dcfce7'; color = '#166534'; Icon = CheckCircle2; }
-    else if (status === 'Absent') { bg = '#fee2e2'; color = '#991b1b'; Icon = XCircle; }
-    
-    return (
-      <span 
-        onClick={onClick}
-        style={{ background: bg, color: color, padding: '6px 14px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: onClick ? 'pointer' : 'default', transition: 'all 0.2s', border: `1px solid ${color}30` }}
-      >
-        <Icon size={14}/> {status}
-      </span>
-    );
-  };
 
   return (
     <div className="animate-fade-in">
@@ -385,7 +363,19 @@ const ChildRecords: React.FC = () => {
         )}
       </div>
 
-      {/* Records Table */}
+      {/* Records Legend */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1.5rem', marginBottom: '1rem', padding: '0 0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e2e8f0' }} /> PENDING
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} /> ABSENT
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} /> PRESENT (BMI, DENTAL, EYE)
+        </div>
+      </div>
+
       {/* Records List View */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {loading ? (
@@ -418,7 +408,7 @@ const ChildRecords: React.FC = () => {
               transition={{ delay: index * 0.05 }}
               key={child.id}
               className="glass-card record-card"
-              onClick={() => navigate(`/child/${child.id}`)}
+               onClick={() => navigate(`/child/${child.id}?fromTab=records`)}
               style={{ 
                 background: 'white', 
                 padding: '1.5rem', 
@@ -494,38 +484,32 @@ const ChildRecords: React.FC = () => {
                 })()}
               </div>
 
-              {/* Attendance/Checkup Selection */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
-                  {['SCHOOL_ADMIN', 'PRINCIPAL', 'STAFF', 'CLASS_TEACHER'].includes(role) && (
-                    <div style={{ position: 'relative' }}>
-                      <select 
-                        value={child.status}
-                        onChange={(e) => updateStatus(child.id, e.target.value)}
-                        style={{ 
-                          fontSize: '0.85rem', 
-                          padding: '8px 32px 8px 12px', 
-                          borderRadius: '10px', 
-                          background: child.status === 'Done' ? '#dcfce7' : child.status === 'Absent' ? '#fee2e2' : '#f1f5f9', 
-                          color: child.status === 'Done' ? '#166534' : child.status === 'Absent' ? '#991b1b' : 'var(--text-muted)',
-                          border: 'none', 
-                          cursor: 'pointer', 
-                          fontWeight: 500,
-                          appearance: 'none',
-                          WebkitAppearance: 'none'
-                        }}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Done">Present</option>
-                        <option value="Absent">Absent</option>
-                      </select>
-                      <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.6 }}>
-                        {child.status === 'Done' ? <CheckCircle2 size={16} /> : child.status === 'Absent' ? <XCircle size={16} /> : <Clock size={16} />}
-                      </div>
+              {/* Screening Status Dots (BMI, Dental, Eye) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                {(() => {
+                  const latest = child.healthRecords?.[0];
+                  
+                  // Helper to get status color
+                  const getDotStyle = (status: string | null | undefined) => {
+                    if (status === 'Present' || status === 'Done' || status === 'Completed') 
+                      return { background: '#10b981', ring: 'rgba(16, 185, 129, 0.2)' }; // Green
+                    if (status === 'Absent') 
+                      return { background: '#ef4444', ring: 'rgba(239, 68, 68, 0.2)' }; // Red
+                    return { background: '#e2e8f0', ring: 'transparent' }; // Gray (Pending/No Data)
+                  };
+
+                  const bmiStatus = getDotStyle(latest?.bmiStatus || (latest ? 'Done' : 'Pending'));
+                  const dentalStatus = getDotStyle(latest?.dentalStatus || latest?.dentalCheckup);
+                  const eyeStatus = getDotStyle(latest?.eyeStatus || latest?.eyeCheckup);
+
+                  return (
+                    <div style={{ display: 'flex', gap: '10px', background: '#f8fafc', padding: '8px 12px', borderRadius: '14px', border: '1px solid #f1f5f9' }}>
+                      <div title="BMI Status" style={{ width: '10px', height: '10px', borderRadius: '50%', background: bmiStatus.background, boxShadow: `0 0 0 3px ${bmiStatus.ring}`, transition: 'all 0.3s' }} />
+                      <div title="Dental Status" style={{ width: '10px', height: '10px', borderRadius: '50%', background: dentalStatus.background, boxShadow: `0 0 0 3px ${dentalStatus.ring}`, transition: 'all 0.3s' }} />
+                      <div title="Vision Status" style={{ width: '10px', height: '10px', borderRadius: '50%', background: eyeStatus.background, boxShadow: `0 0 0 3px ${eyeStatus.ring}`, transition: 'all 0.3s' }} />
                     </div>
-                  )}
-                  {(!['SCHOOL_ADMIN', 'PRINCIPAL', 'STAFF', 'CLASS_TEACHER'].includes(role)) && (
-                    <StatusBadge status={child.status} />
-                  )}
+                  );
+                })()}
               </div>
 
               <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>

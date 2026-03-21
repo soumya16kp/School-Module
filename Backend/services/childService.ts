@@ -150,4 +150,41 @@ export class ChildService {
 
     return { ...child, activityHistory, wellnessStatus };
   }
+
+  static async updateAttendance(childId: number, schoolId: number, eventType: string, status: string) {
+    // Find the latest event of this type for the school
+    let event = await prisma.event.findFirst({
+      where: { schoolId, type: eventType as any },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!event) {
+      // Create a default event if none exists so we can log attendance
+      const school = await prisma.school.findUnique({ where: { id: schoolId } });
+      event = await prisma.event.create({
+        data: {
+          schoolId,
+          type: eventType as any,
+          title: eventType.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' '),
+          academicYear: school?.academicYear || "",
+          scheduledAt: new Date(),
+          completedAt: new Date(),
+          attendanceJson: { studentStatuses: {} }
+        }
+      });
+    }
+
+    const attJson = (event.attendanceJson as any) || { studentStatuses: {} };
+    if (!attJson.studentStatuses) attJson.studentStatuses = {};
+    
+    attJson.studentStatuses[childId.toString()] = status;
+
+    return prisma.event.update({
+      where: { id: event.id },
+      data: { 
+        attendanceJson: attJson,
+        completedAt: event.completedAt || new Date()
+      }
+    });
+  }
 }
