@@ -78,7 +78,7 @@ const ParentDashboard: React.FC = () => {
         setData(dashboardData);
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to load dashboard');
-        if (err.response?.status === 401 || err.response?.status === 403) {
+        if (err.response?.status === 401) {
           navigate('/parent-login');
         }
       } finally {

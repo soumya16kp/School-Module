@@ -109,10 +109,12 @@ router.get("/children/:id", authenticateParentJWT, async (req: ParentRequest, re
   try {
     if (!req.parent) return res.status(401).json({ message: "Unauthenticated" });
     const childId = parseInt(req.params.id as string);
+    if (isNaN(childId)) return res.status(400).json({ message: "Invalid child id" });
     const result = await ParentService.getChildDashboard(childId, req.parent.phone);
     res.json(result);
   } catch (err: any) {
-    res.status(403).json({ message: err.message });
+    const isAuthError = err.message?.toLowerCase().includes('unauthorized') || err.message?.toLowerCase().includes('not found');
+    res.status(isAuthError ? 403 : 500).json({ message: err.message || "Server error" });
   }
 });
 

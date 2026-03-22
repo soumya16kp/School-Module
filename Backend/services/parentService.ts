@@ -86,7 +86,7 @@ export class ParentService {
         registrationNo: c.registrationNo,
         class: c.class,
         section: c.section,
-        schoolName: c.school.schoolName
+        schoolName: c.school?.schoolName || 'Unknown School'
       }))
     };
   }
@@ -194,11 +194,11 @@ export class ParentService {
         registrationNo: child.registrationNo,
         class: child.class,
         section: child.section,
-        school: {
+        school: child.school ? {
           name: child.school.schoolName,
           address: child.school.address,
           city: child.school.city
-        }
+        } : null
       },
       healthRecords: child.healthRecords,
       attendanceHistory,
