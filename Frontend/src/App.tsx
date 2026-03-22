@@ -13,6 +13,7 @@ import PartnerDashboard from './pages/PartnerDashboard';
 import EmergencyAccess from './pages/EmergencyAccess';
 import CardView from './pages/CardView';
 import UDISEReport from './pages/UDISEReport';
+import ParentJoin from './pages/ParentJoin';
 import { HealthProvider } from './context/HealthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SchoolDataProvider } from './context/SchoolDataContext';
@@ -72,6 +73,9 @@ function App() {
             </PrivateRoute>
           }
         />
+
+        {/* Public school join/registration link */}
+        <Route path="/join/:token" element={<ParentJoin />} />
 
         {/* Parent Portal Routes */}
         <Route path="/parent-login" element={<ParentLogin />} />

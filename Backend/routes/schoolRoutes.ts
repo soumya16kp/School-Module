@@ -128,6 +128,61 @@ router.get("/my-donations", authenticateJWT, async (req: AuthRequest, res) => {
   }
 });
 
+// POST /api/schools/generate-registration-link – switch to QR mode, generate invite token
+router.post("/generate-registration-link", authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    if (!['SCHOOL_ADMIN', 'PRINCIPAL'].includes(req.user.role)) {
+      return res.status(403).json({ message: "Only Admin or Principal can generate registration links" });
+    }
+    const school = await prisma.school.findFirst({ where: { users: { some: { id: req.user.id } } } });
+    if (!school) return res.status(404).json({ message: "School not found" });
+
+    // Reuse existing token or generate new
+    const crypto = await import("crypto");
+    const token = (school as any).parentRegistrationToken || crypto.randomBytes(24).toString("hex");
+
+    const updated = await prisma.school.update({
+      where: { id: school.id },
+      data: {
+        registrationMode: "QR_LINK",
+        parentRegistrationToken: token,
+      } as any,
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    res.json({ token, url: `${frontendUrl}/join/${token}`, school: (updated as any).schoolName });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// GET /api/schools/join/:token – public, returns school info for parent landing page
+router.get("/join/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+    const school = await prisma.school.findUnique({
+      where: { parentRegistrationToken: token } as any,
+      select: {
+        id: true,
+        schoolName: true,
+        schoolType: true,
+        boardAffiliation: true,
+        udiseCode: true,
+        address: true,
+        city: true,
+        state: true,
+        principalName: true,
+        registrationMode: true,
+      } as any,
+    });
+    if (!school) return res.status(404).json({ message: "Invalid or expired registration link" });
+    res.json(school);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 router.get("/my-school", authenticateJWT, async (req: AuthRequest, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });

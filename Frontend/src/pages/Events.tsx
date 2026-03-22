@@ -64,6 +64,8 @@ const Events: React.FC = () => {
   const [listFilter, setListFilter] = useState<'all' | 'upcoming' | 'ready' | 'finalized'>('all');
   const [expandedEvents, setExpandedEvents] = useState<Record<number, boolean>>({});
   const [children, setChildren] = useState<any[]>([]);
+  const [qrLink, setQrLink] = useState<string | null>((school as any)?.parentRegistrationToken ? `${window.location.origin}/join/${(school as any).parentRegistrationToken}` : null);
+  const [generatingQR, setGeneratingQR] = useState(false);
 
   const userStr = localStorage.getItem('school_user');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -76,7 +78,8 @@ const Events: React.FC = () => {
 
   const totalCollected = school?.donations?.reduce((sum: number, d: any) => sum + Number(d.amount || 0), 0) || 0;
   const creditGoal = school?.annualCreditGoal || 50000;
-  const isUnlocked = totalCollected >= creditGoal;
+  const isQRMode = (school as any)?.registrationMode === 'QR_LINK';
+  const isUnlocked = isQRMode || totalCollected >= creditGoal;
 
   const handleAssignProgram = async (prog: any, scheduledAt: string) => {
     try {
@@ -166,6 +169,20 @@ const Events: React.FC = () => {
       console.error(err);
       alert('Failed to initiate payment');
       setPaying(false);
+    }
+  };
+
+  const handleGenerateQR = async () => {
+    setGeneratingQR(true);
+    try {
+      const res = await schoolService.generateRegistrationLink();
+      setQrLink(res.url);
+      refreshAll(academicYear);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate registration link');
+    } finally {
+      setGeneratingQR(false);
     }
   };
 
@@ -754,67 +771,98 @@ const Events: React.FC = () => {
         )}
       </>
     ) : (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          style={{ textAlign: 'center', padding: '6rem 2rem', background: 'white', borderRadius: '40px', border: '1px solid #e2e8f0' }}
+          style={{ padding: '4rem 2rem', background: 'white', borderRadius: '40px', border: '1px solid #e2e8f0' }}
         >
-          <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 2.5rem auto' }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'var(--primary-light)', borderRadius: '50%', opacity: 0.2, animation: 'pulse 2s infinite' }}></div>
-            <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--primary-light)' }}>
-              <ShieldCheck size={56} color="var(--primary)" />
+          {/* Lock header */}
+          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 2rem auto' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'var(--primary-light)', borderRadius: '50%', opacity: 0.2 }} />
+              <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--primary-light)' }}>
+                <ShieldCheck size={48} color="var(--primary)" />
+              </div>
+              <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#ef4444', color: 'white', borderRadius: '50%', padding: '7px', border: '3px solid white' }}>
+                <Lock size={16} />
+              </div>
             </div>
-            <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#ef4444', color: 'white', borderRadius: '50%', padding: '8px', border: '4px solid white' }}>
-              <Lock size={20} />
-            </div>
+            <h2 style={{ fontSize: '2.2rem', fontWeight: 800, marginBottom: '0.75rem' }}>Activate Health Programs</h2>
+            <p style={{ color: 'var(--text-muted)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.7, fontSize: '1.05rem' }}>
+              Choose how your school would like to unlock the annual health calendar.
+            </p>
           </div>
 
-          <h2 style={{ fontSize: '2.75rem', fontWeight: 800, marginBottom: '1.25rem' }}>Calendar Locked</h2>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '650px', margin: '0 auto 3.5rem auto', lineHeight: 1.8, fontSize: '1.2rem' }}>
-            Activated once the institutional sponsor pool reaches <strong>₹{creditGoal.toLocaleString()}</strong>.
-          </p>
+          {/* Two options */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', maxWidth: '800px', margin: '0 auto' }}>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '2rem', maxWidth: '800px', margin: '0 auto 4rem auto' }}>
-             {[
-               { icon: <HeartPulse size={28} />, label: 'Medical' },
-               { icon: <Brain size={28} />, label: 'Psychology' },
-               { icon: <Salad size={28} />, label: 'Nutrition' },
-               { icon: <Flame size={28} />, label: 'Disaster' }
-             ].map((item, i) => (
-               <div key={i} style={{ padding: '2rem', background: '#f8fafc', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ color: 'var(--primary)' }}>{item.icon}</div>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 700 }}>{item.label}</span>
-               </div>
-             ))}
-          </div>
+            {/* Option 1 — Direct Payment */}
+            <div style={{ padding: '2.5rem', borderRadius: '28px', border: '2px solid #e2e8f0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShieldCheck size={26} color="#2563eb" />
+              </div>
+              <div>
+                <h3 style={{ fontWeight: 800, fontSize: '1.2rem', color: '#1e293b', marginBottom: '6px' }}>Direct Payment</h3>
+                <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                  School pays the full annual program fee of <strong>₹{creditGoal.toLocaleString()}</strong> in one go. Events unlock immediately after payment.
+                </p>
+              </div>
+              <div style={{ marginTop: 'auto' }}>
+                <div style={{ marginBottom: '12px', fontSize: '0.82rem', color: '#94a3b8', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <Info size={13} /> ₹{totalCollected.toLocaleString()} of ₹{creditGoal.toLocaleString()} collected
+                </div>
+                <div style={{ width: '100%', height: '6px', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
+                  <div style={{ height: '100%', width: `${Math.min(100, (totalCollected / creditGoal) * 100)}%`, background: 'linear-gradient(90deg, #2563eb, #7c3aed)', borderRadius: '10px' }} />
+                </div>
+                <button
+                  onClick={handlePayGap}
+                  disabled={paying}
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '14px', fontSize: '1rem', borderRadius: '14px', fontWeight: 700 }}
+                >
+                  {paying ? 'Processing...' : `Pay ₹${(creditGoal - totalCollected).toLocaleString()}`}
+                </button>
+              </div>
+            </div>
 
-          <div style={{ maxWidth: '600px', margin: '0 auto 4rem auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontWeight: 700, fontSize: '0.95rem' }}>
-              <span style={{ color: '#9a3412' }}>Sponsorship Pool Progress</span>
-              <span style={{ color: 'var(--primary)' }}>{Math.round((totalCollected / creditGoal) * 100)}%</span>
+            {/* Option 2 — QR / Link */}
+            <div style={{ padding: '2.5rem', borderRadius: '28px', border: '2px solid #e2e8f0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CheckCircle size={26} color="#16a34a" />
+              </div>
+              <div>
+                <h3 style={{ fontWeight: 800, fontSize: '1.2rem', color: '#1e293b', marginBottom: '6px' }}>Parent Self-Registration</h3>
+                <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                  Generate a QR code &amp; shareable link. Parents register individually — no annual pool payment required. Events unlock immediately.
+                </p>
+              </div>
+              <div style={{ marginTop: 'auto' }}>
+                {qrLink ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0', fontSize: '0.78rem', color: '#166534', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                      {qrLink}
+                    </div>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(qrLink); alert('Link copied!'); }}
+                      className="btn"
+                      style={{ width: '100%', padding: '14px', fontSize: '1rem', borderRadius: '14px', fontWeight: 700, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+                    >
+                      Copy Link
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerateQR}
+                    disabled={generatingQR}
+                    className="btn"
+                    style={{ width: '100%', padding: '14px', fontSize: '1rem', borderRadius: '14px', fontWeight: 700, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+                  >
+                    {generatingQR ? 'Generating...' : 'Generate QR & Link'}
+                  </button>
+                )}
+              </div>
             </div>
-            <div style={{ width: '100%', height: '14px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(100, (totalCollected / creditGoal) * 100)}%` }}
-                style={{ height: '100%', background: 'linear-gradient(90deg, var(--primary), #db2777)', borderRadius: '10px' }}
-              />
-            </div>
-            <div style={{ marginTop: '12px', fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'center', gap: '8px' }}>
-              <Info size={16} /> 
-              <span>₹{totalCollected.toLocaleString()} collected of ₹{creditGoal.toLocaleString()} goal</span>
-            </div>
-          </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <button 
-              onClick={handlePayGap} 
-              disabled={paying}
-              className="btn btn-primary" 
-              style={{ padding: '20px 48px', fontSize: '1.2rem', borderRadius: '20px', fontWeight: 800 }}
-            >
-              {paying ? 'Processing...' : `Bridge ₹${(creditGoal - totalCollected).toLocaleString()} Gap`}
-            </button>
           </div>
         </motion.div>
       )}

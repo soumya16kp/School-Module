@@ -61,6 +61,16 @@ export const schoolService = {
     const response = await api.post('/schools/record-unlock-payment', { amount, paymentId, orderId });
     return response.data;
   },
+  generateRegistrationLink: async () => {
+    const response = await api.post('/schools/generate-registration-link');
+    return response.data as { token: string; url: string; school: string };
+  },
+  getSchoolByJoinToken: async (token: string) => {
+    const axiosBase = (await import('axios')).default;
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
+    const response = await axiosBase.get(`${base}/schools/join/${token}`);
+    return response.data;
+  },
   update: async (id: number, data: any) => {
     const response = await api.put(`/schools/${id}`, data);
     return response.data;

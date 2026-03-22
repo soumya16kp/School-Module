@@ -20,13 +20,11 @@ model User {
   assignedClass   Int?
   assignedSection String?
   phone           String?
-  donations       Donation[]
-  eventRequests   EventRequest[] @relation("UserRequests")
-  healthEdits    HealthRecordEdit[]
-  healthRecordEdits   HealthRecordEdit[]
+  donations           Donation[]
   eventRequests       EventRequest[]     @relation("UserRequests")
+  healthRecordEdits   HealthRecordEdit[]
   childEditLogs       ChildEditLog[]
-  school          School?    @relation(fields: [schoolId], references: [id])
+  school              School?    @relation(fields: [schoolId], references: [id])
 }
 
 model School {
@@ -81,6 +79,8 @@ model School {
   pediatricianName       String?
   pediatricianContact    String?
   pediatricianImage      String?
+  registrationMode       String                @default("DIRECT")
+  parentRegistrationToken String?              @unique
   ambassadors            AmbassadorDirectory[]
   certifications         Certification[]
   children               Child[]
@@ -88,7 +88,6 @@ model School {
   events                 Event[]
   eventRequests          EventRequest[]
   users                  User[]
-  eventRequests          EventRequest[]
 }
 
 model Child {
