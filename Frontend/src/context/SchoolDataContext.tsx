@@ -109,25 +109,24 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const user = userStr ? JSON.parse(userStr) : null;
       const role = user?.role;
 
-      const basePromises: Promise<any>[] = [
-        eventService.getAll(year).catch(() => []),
-        schoolService.getMySchool().catch(() => null),
-        ambassadorService.getAll().catch(() => []),
-        schoolService.getDonations().catch(() => ({ donations: [] })),
+      const promises: any[] = [
+        eventService.getAll(year),
+        schoolService.getMySchool(),
+        ambassadorService.getAll(),
+        schoolService.getDonations(),
       ];
 
-      let dashboardPromise: Promise<any> = Promise.resolve(null);
       if (role === 'DISTRICT_VIEWER') {
-        dashboardPromise = dashboardService.getDistrictOverview(year).catch(() => null);
+        promises.push(dashboardService.getDistrictOverview(year));
       } else if (role && role !== 'PARTNER') {
-        dashboardPromise = dashboardService.getOverview(year, user?.assignedClass, user?.assignedSection).catch(() => null);
+        promises.push(dashboardService.getOverview(year, user?.assignedClass, user?.assignedSection));
       }
-      basePromises.push(dashboardPromise);
 
-      const [eventsData, schoolData, ambassadorsData, donationsData, dashboardData] = await Promise.all(basePromises);
+      const results = await Promise.all(promises);
+      const [eventsData, schoolData, ambassadorsData, donationsData, dashboardData] = results;
 
       // Group donations
-      const allDonations: any[] = (donationsData?.donations) || [];
+      const allDonations: any[] = donationsData.donations || [];
       const grouped = allDonations.reduce((acc: any, d: any) => {
         const key = d.user?.id ?? 'anon';
         const name = d.user?.name || 'Anonymous';

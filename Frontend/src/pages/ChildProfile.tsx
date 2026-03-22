@@ -361,13 +361,6 @@ const ChildProfile: React.FC = () => {
     visionNotes: '',
     colorBlindness: false,
     eyeSquint: false,
-    bmiPercentile: '',
-    bloodPressure: '',
-    pulse: '',
-    temperature: '',
-    respiratoryRate: '',
-    pigeonChest: false,
-    enlargedTonsils: false,
   };
 
   const [formData, setFormData] = useState(emptyForm);
@@ -405,13 +398,6 @@ const ChildProfile: React.FC = () => {
       visionNotes: currentRecord.visionNotes || '',
       colorBlindness: currentRecord.colorBlindness || false,
       eyeSquint: currentRecord.eyeSquint || false,
-      bmiPercentile: currentRecord.bmiPercentile || '',
-      bloodPressure: currentRecord.bloodPressure || '',
-      pulse: currentRecord.pulse || '',
-      temperature: currentRecord.temperature || '',
-      respiratoryRate: currentRecord.respiratoryRate || '',
-      pigeonChest: currentRecord.pigeonChest || false,
-      enlargedTonsils: currentRecord.enlargedTonsils || false,
     });
     setReportFile(null);
     setShowAddForm(true);
@@ -1033,9 +1019,6 @@ const ChildProfile: React.FC = () => {
                               <option value="Absent">Absent</option>
                             </select>
                           </FormField>
-                          <FormField label="BMI Percentile">
-                            <input type="number" step="0.1" value={formData.bmiPercentile} onChange={e => setFormData({ ...formData, bmiPercentile: e.target.value })} placeholder="e.g. 50" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500" />
-                          </FormField>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField label="Eye Attendance">
@@ -1135,35 +1118,6 @@ const ChildProfile: React.FC = () => {
                             </FormField>
                           </div>
                         )}
-
-                        {/* General Health Section */}
-                        <div className="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                          <h4 className="font-semibold text-gray-800 flex items-center gap-2"><ActivityIcon size={16} className="text-purple-500" /> Vitals & Assessment</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField label="Blood Pressure">
-                              <input type="text" value={formData.bloodPressure} onChange={e => setFormData({ ...formData, bloodPressure: e.target.value })} placeholder="e.g. 120/80" className="w-full rounded-lg border border-gray-300 px-3 py-2" />
-                            </FormField>
-                            <FormField label="Pulse (bpm)">
-                              <input type="number" value={formData.pulse} onChange={e => setFormData({ ...formData, pulse: e.target.value })} placeholder="e.g. 72" className="w-full rounded-lg border border-gray-300 px-3 py-2" />
-                            </FormField>
-                            <FormField label="Temperature (°F)">
-                              <input type="number" step="0.1" value={formData.temperature} onChange={e => setFormData({ ...formData, temperature: e.target.value })} placeholder="e.g. 98.6" className="w-full rounded-lg border border-gray-300 px-3 py-2" />
-                            </FormField>
-                            <FormField label="Resp. Rate (bpm)">
-                              <input type="number" value={formData.respiratoryRate} onChange={e => setFormData({ ...formData, respiratoryRate: e.target.value })} placeholder="e.g. 16" className="w-full rounded-lg border border-gray-300 px-3 py-2" />
-                            </FormField>
-                            <div className="md:col-span-2 grid grid-cols-2 gap-4">
-                              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
-                                <input type="checkbox" checked={formData.pigeonChest} onChange={e => setFormData({ ...formData, pigeonChest: e.target.checked })} className="rounded text-purple-600" />
-                                <span className="text-sm font-medium text-gray-700">Pigeon Chest</span>
-                              </label>
-                              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
-                                <input type="checkbox" checked={formData.enlargedTonsils} onChange={e => setFormData({ ...formData, enlargedTonsils: e.target.checked })} className="rounded text-purple-600" />
-                                <span className="text-sm font-medium text-gray-700">Enlarged Tonsils</span>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
                         <FormField label="Medical Report">
                           <input type="file" onChange={e => setReportFile(e.target.files?.[0] || null)} className="w-full text-sm" />
                         </FormField>

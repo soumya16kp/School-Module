@@ -9,21 +9,21 @@ datasource db {
 }
 
 model User {
-  id                  Int        @id @default(autoincrement())
-  email               String     @unique
-  password            String
-  name                String
-  schoolId            Int?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
-  role                UserRole   @default(SCHOOL_ADMIN)
-  assignedClass       Int?
-  assignedSection     String?
-  phone               String?
-  partnerInviteToken  String?    @unique // Unique token for partner invite link; used when role=PARTNER
-  donations           Donation[]
-  school              School?    @relation(fields: [schoolId], references: [id])
-  schoolsOnboarded    School[]   @relation("SchoolsOnboardedByPartner")
+  id              Int        @id @default(autoincrement())
+  email           String     @unique
+  password        String
+  name            String
+  schoolId        Int?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  role            UserRole   @default(SCHOOL_ADMIN)
+  assignedClass   Int?
+  assignedSection String?
+  phone           String?
+  donations       Donation[]
+  eventRequests   EventRequest[] @relation("UserRequests")
+  healthEdits    HealthRecordEdit[]
+  school          School?    @relation(fields: [schoolId], references: [id])
 }
 
 model School {
@@ -84,8 +84,7 @@ model School {
   donations              Donation[]
   events                 Event[]
   users                  User[]
-  registeredViaPartnerId Int?
-  registeredViaPartner   User?    @relation("SchoolsOnboardedByPartner", fields: [registeredViaPartnerId], references: [id])
+  eventRequests          EventRequest[]
 }
 
 model Child {
@@ -148,11 +147,8 @@ model HealthRecord {
   height               Float?
   weight               Float?
   bmi                  Float?
-  bmiStatus            String?   // legacy; kept to avoid db push data loss
   dentalOverallHealth  String?
-  dentalStatus         String?   // legacy; kept to avoid db push data loss
   eyeCheckup           String?
-  eyeStatus            String?   // legacy; kept to avoid db push data loss
   eyeVisionLeft        String?
   eyeVisionRight       String?
   reportFile           String?
@@ -174,13 +170,6 @@ model HealthRecord {
   bmiStatus            String?   @default("Absent")
   eyeStatus            String?   @default("Absent")
   dentalStatus         String?   @default("Absent")
-  // General Health / Vitals
-  bloodPressure        String?
-  pulse                Int?
-  temperature          Float?
-  respiratoryRate      Int?
-  pigeonChest          Boolean?  @default(false)
-  enlargedTonsils      Boolean?  @default(false)
   child                Child     @relation(fields: [childId], references: [id])
   edits                HealthRecordEdit[]
 }

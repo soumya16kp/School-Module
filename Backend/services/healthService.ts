@@ -75,14 +75,6 @@ export class HealthService {
         eyeStatus: data.eyeStatus || "Absent",
         dentalStatus: data.dentalStatus || "Absent",
 
-        // vitals
-        bloodPressure: data.bloodPressure || null,
-        pulse: toFloatOrNull(data.pulse) ? parseInt(data.pulse) : null,
-        temperature: toFloatOrNull(data.temperature),
-        respiratoryRate: toFloatOrNull(data.respiratoryRate) ? parseInt(data.respiratoryRate) : null,
-        pigeonChest: data.pigeonChest != null ? toBool(data.pigeonChest) : false,
-        enlargedTonsils: data.enlargedTonsils != null ? toBool(data.enlargedTonsils) : false,
-
         reportFile: data.reportFile || null,
       },
     });
@@ -157,14 +149,6 @@ export class HealthService {
       bmiStatus: data.bmiStatus || "Absent",
       eyeStatus: data.eyeStatus || "Absent",
       dentalStatus: data.dentalStatus || "Absent",
-
-      // vitals
-      bloodPressure: data.bloodPressure || null,
-      pulse: toFloatOrNull(data.pulse) ? parseInt(data.pulse) : null,
-      temperature: toFloatOrNull(data.temperature),
-      respiratoryRate: toFloatOrNull(data.respiratoryRate) ? parseInt(data.respiratoryRate) : null,
-      pigeonChest: data.pigeonChest != null ? toBool(data.pigeonChest) : false,
-      enlargedTonsils: data.enlargedTonsils != null ? toBool(data.enlargedTonsils) : false,
     };
     if (data.reportFile !== undefined) {
       updateData.reportFile = data.reportFile;
