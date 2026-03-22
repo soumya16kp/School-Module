@@ -57,6 +57,10 @@ export const schoolService = {
     const response = await api.post('/schools/create-order', { amount });
     return response.data;
   },
+  recordUnlockPayment: async (amount: number, paymentId: string, orderId: string) => {
+    const response = await api.post('/schools/record-unlock-payment', { amount, paymentId, orderId });
+    return response.data;
+  },
   update: async (id: number, data: any) => {
     const response = await api.put(`/schools/${id}`, data);
     return response.data;
@@ -133,6 +137,10 @@ export const childService = {
   updateAttendance: async (childId: number, eventType: string, status: string) => {
     const response = await api.post(`/children/${childId}/attendance`, { eventType, status });
     return response.data;
+  },
+  getEditHistory: async (childId: number) => {
+    const response = await api.get(`/children/${childId}/edit-history`);
+    return response.data as { id: number; editedAt: string; changesJson: Record<string, { from: any; to: any }>; editedBy: { id: number; name: string; role: string } }[];
   }
 };
 
@@ -147,6 +155,10 @@ export const healthService = {
   },
   updateRecord: async (childId: number, recordId: number, data: any) => {
     const response = await api.put(`/health/${childId}/${recordId}`, data);
+    return response.data;
+  },
+  finalizeRecord: async (childId: number, recordId: number) => {
+    const response = await api.post(`/health/${childId}/${recordId}/finalize`);
     return response.data;
   }
 };

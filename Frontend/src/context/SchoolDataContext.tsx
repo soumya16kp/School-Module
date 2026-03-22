@@ -25,6 +25,7 @@ interface SchoolDataContextType extends SchoolDataState {
 const SchoolDataContext = createContext<SchoolDataContextType | undefined>(undefined);
 
 export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const initialLoading = !!localStorage.getItem('school_token');
   const [state, setState] = useState<SchoolDataState>({
     events: [],
     ambassadors: [],
@@ -32,7 +33,7 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     school: null,
     overview: null,
     districtOverview: null,
-    loading: false,
+    loading: initialLoading,
     error: null,
   });
 

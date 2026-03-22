@@ -73,6 +73,35 @@ router.post("/create-order", authenticateJWT, async (req: AuthRequest, res) => {
   }
 });
 
+// POST /api/schools/record-unlock-payment – school self-funds their credit goal
+router.post("/record-unlock-payment", authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    const { amount, paymentId, orderId } = req.body;
+    if (!amount || !paymentId) return res.status(400).json({ message: "amount and paymentId are required" });
+
+    const school = await prisma.school.findFirst({
+      where: { users: { some: { id: req.user.id } } },
+      select: { id: true }
+    });
+    if (!school) return res.status(404).json({ message: "School not found" });
+
+    const donation = await prisma.donation.create({
+      data: {
+        partnerId: req.user.id,
+        schoolId: school.id,
+        amount: parseFloat(amount),
+        type: "SELF_UNLOCK",
+        status: "COMPLETED",
+        description: `Self-funded program unlock. Payment ID: ${paymentId}. Order ID: ${orderId || "N/A"}`,
+      }
+    });
+    res.status(201).json(donation);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 router.get("/my-donations", authenticateJWT, async (req: AuthRequest, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });

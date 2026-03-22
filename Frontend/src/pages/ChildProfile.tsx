@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useHealthContext } from '../context/HealthContext';
-import { cardService } from '../services/api';
+import { cardService, healthService, childService } from '../services/api';
 import {
   User,
   CheckCircle2,
@@ -37,6 +37,10 @@ import {
   Activity as ActivityIcon,
   LineChart as LineChartIcon,
   ChevronRight,
+  Lock,
+  CheckSquare,
+  ClipboardList,
+  UserCog,
 } from 'lucide-react';
 import { getEventTypesForClass } from '../config/ageBands';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -277,10 +281,13 @@ const ChildProfile: React.FC = () => {
   const role = user?.role || '';
 
   const [showAddForm, setShowAddForm] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [editHistory, setEditHistory] = useState<{ id: number; editedAt: string; changesJson: Record<string, { from: any; to: any }>; editedBy: { id: number; name: string; role: string } }[]>([]);
+  const [editHistoryLoading, setEditHistoryLoading] = useState(false);
   const [reportFile, setReportFile] = useState<File | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [idCardLoading, setIdCardLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'metrics' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'metrics' | 'history' | 'edit-history'>('overview');
 
   const displayRecords = healthRecords.length > 0
     ? healthRecords
@@ -343,9 +350,9 @@ const ChildProfile: React.FC = () => {
     checkupDate: new Date().toISOString().split('T')[0],
     height: '',
     weight: '',
-    bmiStatus: 'Absent',
-    eyeStatus: 'Absent',
-    dentalStatus: 'Absent',
+    bmiStatus: 'Present',
+    eyeStatus: 'Present',
+    dentalStatus: 'Present',
     dentalCheckup: 'Pending',
     dentalCariesIndex: '',
     dentalOverallHealth: 'Healthy',
@@ -380,6 +387,16 @@ const ChildProfile: React.FC = () => {
       }
     });
   }, [id, navigate]);
+
+  useEffect(() => {
+    if (activeTab === 'edit-history' && id) {
+      setEditHistoryLoading(true);
+      childService.getEditHistory(parseInt(id))
+        .then(setEditHistory)
+        .catch(() => setEditHistory([]))
+        .finally(() => setEditHistoryLoading(false));
+    }
+  }, [activeTab, id]);
 
   const openEditForm = () => {
     setFormData({
@@ -474,6 +491,21 @@ const ChildProfile: React.FC = () => {
     }
   };
 
+  const handleFinalize = async () => {
+    if (!id || !currentRecord || currentRecord.id === -1) return;
+    if (!window.confirm('Finalizing this record will lock it permanently and send the annual health report to the parent. Continue?')) return;
+    setFinalizing(true);
+    try {
+      await healthService.finalizeRecord(parseInt(id), currentRecord.id);
+      await fetchChildData(parseInt(id));
+      alert('Record finalized successfully. Annual report sent to parent.');
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Failed to finalize record');
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
   const radarData = [
     { subject: 'BMI', value: bmiValue ? Math.min((bmiValue / 25) * 100, 100) : 0 },
     { subject: 'Dental', value: currentRecord.dentalOverallHealth === 'Healthy' ? 100 : currentRecord.dentalOverallHealth === 'Under Observed' ? 50 : 20 },
@@ -521,9 +553,14 @@ const ChildProfile: React.FC = () => {
                 </h1>
                 <p className="text-gray-500 mt-2">Comprehensive health tracking and insights</p>
               </div>
-              <div className="flex gap-3">
-                {['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'].includes(role) && (
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} 
+              <div className="flex gap-3 flex-wrap items-center">
+                {currentRecord?.isFinalized && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-sm font-semibold border border-emerald-200">
+                    <Lock size={14} /> Record Locked
+                  </span>
+                )}
+                {['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'].includes(role) && !currentRecord?.isFinalized && (
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       const latestYear = uniqueYears[0] || '2024-2025';
                       if (currentRecord.academicYear !== latestYear) {
@@ -536,8 +573,16 @@ const ChildProfile: React.FC = () => {
                     <Edit size={18} /> Edit
                   </motion.button>
                 )}
+                {['SCHOOL_ADMIN', 'PRINCIPAL'].includes(role) && currentRecord?.id !== -1 && !currentRecord?.isFinalized && (
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    onClick={handleFinalize}
+                    disabled={finalizing}
+                    className="px-5 py-2.5 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-60">
+                    <CheckSquare size={18} /> {finalizing ? 'Finalizing...' : 'Complete Record'}
+                  </motion.button>
+                )}
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                  onClick={() => { 
+                  onClick={() => {
                     const latestYear = uniqueYears[0] || '2024-2025';
                     if (selectedYear !== latestYear) {
                       alert(`Please switch to current session (${latestYear}) to add/update this session's record.`);
@@ -546,8 +591,8 @@ const ChildProfile: React.FC = () => {
                     if (showAddForm) {
                       setShowAddForm(false);
                     } else {
-                      setFormData({ ...emptyForm, academicYear: latestYear }); 
-                      setShowAddForm(true); 
+                      setFormData({ ...emptyForm, academicYear: latestYear });
+                      setShowAddForm(true);
                     }
                   }}
                   className="px-5 py-2.5 rounded-xl bg-linear-to-r from-purple-600 to-indigo-600 text-white font-semibold shadow-lg shadow-purple-500/25 hover:shadow-xl transition-all flex items-center gap-2">
@@ -600,6 +645,7 @@ const ChildProfile: React.FC = () => {
               { id: 'overview', label: 'Overview', icon: ActivityIcon },
               { id: 'metrics', label: 'Health Metrics', icon: BarChart3 },
               { id: 'history', label: 'History', icon: Calendar },
+              { id: 'edit-history', label: 'Edit Log', icon: ClipboardList },
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
                 className={`px-6 py-3 text-sm font-medium transition-all relative ${
@@ -1000,6 +1046,91 @@ const ChildProfile: React.FC = () => {
                         </a>
                       </div>
                     )}
+                  </motion.div>
+                )}
+                {activeTab === 'edit-history' && (
+                  <motion.div key="edit-history" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-4">
+                    <GlassCard className="p-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                        <ClipboardList size={20} className="text-purple-500" /> Student Record Edit Log
+                      </h3>
+                      <p className="text-xs text-gray-400 mb-6">Every change made to this student's profile details is recorded here.</p>
+
+                      {editHistoryLoading ? (
+                        <div className="flex justify-center py-10">
+                          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                            <Activity size={32} className="text-purple-400" />
+                          </motion.div>
+                        </div>
+                      ) : editHistory.length === 0 ? (
+                        <div className="text-center py-12">
+                          <ClipboardList size={40} className="text-gray-200 mx-auto mb-3" />
+                          <p className="text-gray-400 font-medium">No edits recorded yet</p>
+                          <p className="text-xs text-gray-300 mt-1">Changes to this student's profile will appear here</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {editHistory.map((log, idx) => {
+                            const fields = Object.entries(log.changesJson);
+                            const FIELD_LABELS: Record<string, string> = {
+                              name: 'Name', class: 'Class', section: 'Section',
+                              fatherName: "Father's Name", motherName: "Mother's Name",
+                              fatherNumber: "Father's Number", motherNumber: "Mother's Number",
+                              emailId: 'Email', mobile: 'Mobile', gender: 'Gender', notes: 'Notes',
+                            };
+                            return (
+                              <motion.div
+                                key={log.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.04 }}
+                                className="rounded-xl border border-gray-100 bg-gray-50 overflow-hidden"
+                              >
+                                {/* Header row */}
+                                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white">
+                                  <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
+                                    <UserCog size={15} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-gray-800 truncate">
+                                      {log.editedBy.name}
+                                      <span className="ml-2 text-[10px] font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                                        {log.editedBy.role.replace(/_/g, ' ')}
+                                      </span>
+                                    </p>
+                                    <p className="text-[11px] text-gray-400">
+                                      {new Date(log.editedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
+                                  <span className="text-[10px] font-bold bg-purple-50 text-purple-600 border border-purple-100 px-2 py-1 rounded-full flex-shrink-0">
+                                    {fields.length} field{fields.length !== 1 ? 's' : ''} changed
+                                  </span>
+                                </div>
+                                {/* Changed fields */}
+                                <div className="divide-y divide-gray-100">
+                                  {fields.map(([field, diff]) => (
+                                    <div key={field} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                                      <span className="w-28 flex-shrink-0 text-[11px] font-semibold text-gray-500 uppercase tracking-wide pt-0.5">
+                                        {FIELD_LABELS[field] || field}
+                                      </span>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-xs font-medium line-through">
+                                          {diff.from ?? '—'}
+                                        </span>
+                                        <ChevronRight size={12} className="text-gray-300 flex-shrink-0" />
+                                        <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-semibold">
+                                          {diff.to ?? '—'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </GlassCard>
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -22,6 +22,9 @@ model User {
   phone               String?
   partnerInviteToken  String?    @unique // Unique token for partner invite link; used when role=PARTNER
   donations           Donation[]
+  healthRecordEdits   HealthRecordEdit[]
+  eventRequests       EventRequest[]     @relation("UserRequests")
+  childEditLogs       ChildEditLog[]
   school              School?    @relation(fields: [schoolId], references: [id])
   schoolsOnboarded    School[]   @relation("SchoolsOnboardedByPartner")
 }
@@ -83,6 +86,7 @@ model School {
   children               Child[]
   donations              Donation[]
   events                 Event[]
+  eventRequests          EventRequest[]
   users                  User[]
   registeredViaPartnerId Int?
   registeredViaPartner   User?    @relation("SchoolsOnboardedByPartner", fields: [registeredViaPartnerId], references: [id])
@@ -113,6 +117,17 @@ model Child {
   school         School               @relation(fields: [schoolId], references: [id])
   dataAccessLogs ChildDataAccessLog[]
   healthRecords  HealthRecord[]
+  editLogs       ChildEditLog[]
+}
+
+model ChildEditLog {
+  id          Int      @id @default(autoincrement())
+  childId     Int
+  editedById  Int
+  changesJson Json
+  editedAt    DateTime @default(now())
+  child       Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  editedBy    User     @relation(fields: [editedById], references: [id])
 }
 
 model ChildDataAccessLog {
@@ -148,11 +163,8 @@ model HealthRecord {
   height               Float?
   weight               Float?
   bmi                  Float?
-  bmiStatus            String?   // legacy; kept to avoid db push data loss
   dentalOverallHealth  String?
-  dentalStatus         String?   // legacy; kept to avoid db push data loss
   eyeCheckup           String?
-  eyeStatus            String?   // legacy; kept to avoid db push data loss
   eyeVisionLeft        String?
   eyeVisionRight       String?
   reportFile           String?
@@ -181,6 +193,8 @@ model HealthRecord {
   respiratoryRate      Int?
   pigeonChest          Boolean?  @default(false)
   enlargedTonsils      Boolean?  @default(false)
+  isFinalized          Boolean   @default(false)
+  finalizedAt          DateTime?
   child                Child     @relation(fields: [childId], references: [id])
   edits                HealthRecordEdit[]
 }

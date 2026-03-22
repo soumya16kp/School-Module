@@ -691,39 +691,48 @@ const Dashboard: React.FC = () => {
                     <p style={{ color: '#64748b', fontSize: '0.95rem' }}>Cohort analytics and high-risk health metrics</p>
                   </div>
                   
-                  {/* Dashboard Filters */}
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Select Class</label>
-                      <select 
-                        value={selectedClass} 
-                        onChange={(e) => setSelectedClass(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                        className="glass-effect"
-                        style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', cursor: 'pointer', minWidth: '140px' }}
-                      >
-                        <option value="all">All Classes</option>
-                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>Class {n}</option>)}
-                      </select>
+                  {/* Dashboard Filters — hidden for CLASS_TEACHER (backend enforces their class) */}
+                  {role === 'CLASS_TEACHER' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ padding: '0.5rem 1.25rem', borderRadius: '12px', background: '#eff6ff', border: '1px solid #bfdbfe', fontWeight: 700, color: '#1e40af', fontSize: '0.9rem' }}>
+                        Class {user?.assignedClass ?? '—'}{user?.assignedSection ? ` – Section ${user.assignedSection}` : ''}
+                      </div>
+                      <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Your assigned class</span>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Section</label>
-                      <select 
-                        value={selectedSection} 
-                        onChange={(e) => setSelectedSection(e.target.value)}
-                        className="glass-effect"
-                        style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', cursor: 'pointer', minWidth: '100px' }}
+                  ) : (
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Select Class</label>
+                        <select
+                          value={selectedClass}
+                          onChange={(e) => setSelectedClass(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                          className="glass-effect"
+                          style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', cursor: 'pointer', minWidth: '140px' }}
+                        >
+                          <option value="all">All Classes</option>
+                          {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>Class {n}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Section</label>
+                        <select
+                          value={selectedSection}
+                          onChange={(e) => setSelectedSection(e.target.value)}
+                          className="glass-effect"
+                          style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', cursor: 'pointer', minWidth: '100px' }}
+                        >
+                          <option value="all">All</option>
+                          {['A','B','C', 'D'].map(s => <option key={s} value={s}>Section {s}</option>)}
+                        </select>
+                      </div>
+                      <button
+                        onClick={() => { setSelectedClass('all'); setSelectedSection('all'); }}
+                        style={{ height: '42px', alignSelf: 'flex-end', padding: '0 1rem', borderRadius: '12px', border: '1px solid #fee2e2', background: '#fff1f1', color: '#ef4444', fontWeight: 600, fontSize: '0.85rem' }}
                       >
-                        <option value="all">All</option>
-                        {['A','B','C', 'D'].map(s => <option key={s} value={s}>Section {s}</option>)}
-                      </select>
+                        Reset
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => { setSelectedClass('all'); setSelectedSection('all'); }}
-                      style={{ height: '42px', alignSelf: 'flex-end', padding: '0 1rem', borderRadius: '12px', border: '1px solid #fee2e2', background: '#fff1f1', color: '#ef4444', fontWeight: 600, fontSize: '0.85rem' }}
-                    >
-                      Reset
-                    </button>
-                  </div>
+                  )}
                 </div>
               </motion.div>
 
@@ -1370,10 +1379,16 @@ const Dashboard: React.FC = () => {
               <School size={40} color="#cbd5e1" />
             </div>
             <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>Institution Not Linked</h2>
-            <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '450px', margin: '0 auto 2.5rem', lineHeight: 1.6 }}>
-              Your account isn&apos;t connected to an institution yet, or the session data is stale.
-              Try refreshing below — if the problem persists, please register your institution.
-            </p>
+            {['CLASS_TEACHER', 'STAFF', 'NURSE_COUNSELLOR'].includes(role) ? (
+              <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '450px', margin: '0 auto 2.5rem', lineHeight: 1.6 }}>
+                Your account isn&apos;t connected to a school yet. Please contact your school administrator to link your account.
+              </p>
+            ) : (
+              <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '450px', margin: '0 auto 2.5rem', lineHeight: 1.6 }}>
+                Your account isn&apos;t connected to an institution yet, or the session data is stale.
+                Try refreshing below — if the problem persists, please register your institution.
+              </p>
+            )}
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 onClick={() => refreshAll()}
@@ -1382,13 +1397,15 @@ const Dashboard: React.FC = () => {
               >
                 🔄 Retry Loading
               </button>
-              <button 
-                onClick={() => navigate('/register-school')}
-                className="btn btn-primary" 
-                style={{ padding: '1rem 2.5rem', borderRadius: '18px', fontWeight: 800, fontSize: '1rem' }}
-              >
-                Complete Registration
-              </button>
+              {!['CLASS_TEACHER', 'STAFF', 'NURSE_COUNSELLOR'].includes(role) && (
+                <button
+                  onClick={() => navigate('/register-school')}
+                  className="btn btn-primary"
+                  style={{ padding: '1rem 2.5rem', borderRadius: '18px', fontWeight: 800, fontSize: '1rem' }}
+                >
+                  Complete Registration
+                </button>
+              )}
             </div>
           </div>
         )}

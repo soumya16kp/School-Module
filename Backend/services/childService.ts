@@ -119,8 +119,7 @@ export class ChildService {
       };
     }).filter((e: any) => e.status !== 'Scheduled' || e.scheduledAt);
 
-    const wellnessTypes = ['MENTAL_WELLNESS', 'IMMUNIZATION_DEWORMING', 'IMMUNIZATION', 'NUTRITION_SESSION', 'HYGIENE_WELLNESS'];
-    const activityHistory = wellnessHistory.filter((h: any) => !wellnessTypes.includes(h.type));
+    const activityHistory = wellnessHistory;
     
     // Robust check for student status (handles numeric and string keys)
     const getStudentStatus = (statusObj: any, cid: number) => {
