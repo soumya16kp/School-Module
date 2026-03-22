@@ -143,8 +143,12 @@ const Events: React.FC = () => {
         name: "EduCentral",
         description: "School Program Unlock",
         order_id: order.id,
-        handler: async function () {
-          alert('Payment Successful! Refreshing...');
+        handler: async function (response: any) {
+          try {
+            await schoolService.recordUnlockPayment(gap, response.razorpay_payment_id, response.razorpay_order_id);
+          } catch (err) {
+            console.error('Failed to record unlock payment:', err);
+          }
           refreshAll(academicYear);
           setPaying(false);
         },

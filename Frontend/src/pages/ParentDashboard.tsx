@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { parentService } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Activity, Calendar, FileText, History,
   LogOut, ShieldAlert, CheckCircle2, Award, HeartPulse,
-  ChevronRight, ArrowLeft, Download, Info, Shield, Bell, X, Check, Link as LinkIcon, CreditCard
+  ChevronRight, ArrowLeft, Download, Info, Shield, Bell, X, Check, Link as LinkIcon, CreditCard, GraduationCap, MapPin, Phone, Mail, User
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
 import QRCode from 'react-qr-code';
@@ -228,6 +228,7 @@ const ParentDashboard: React.FC = () => {
             { id: 'programs', label: 'Safety & Programs', icon: Calendar },
             { id: 'reports', label: 'Medical Reports', icon: FileText },
             { id: 'access-history', label: 'Access History', icon: History },
+            { id: 'school', label: 'School Info', icon: GraduationCap },
           ].map(tab => (
             <button
               key={tab.id}
@@ -594,6 +595,110 @@ const ParentDashboard: React.FC = () => {
                     ))}
                   </ul>
                 )}
+              </div>
+            </motion.div>
+          )}
+          {activeTab === 'school' && (
+            <motion.div key="school" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <div className="glass-card" style={{ padding: '2rem', background: 'white', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem' }}>
+                  <GraduationCap size={22} color="#1e3a8a" />
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>School Information</h3>
+                </div>
+
+                {!data?.child?.school ? (
+                  <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem' }}>School details not available.</p>
+                ) : (() => {
+                  const school = data.child.school;
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                      {/* School Name & Type */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '1.25rem', borderRadius: '14px', background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                        <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#1e3a8a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <GraduationCap size={26} color="white" />
+                        </div>
+                        <div>
+                          <h4 style={{ fontWeight: '800', color: '#1e3a8a', fontSize: '1.15rem', margin: 0 }}>{school.schoolName}</h4>
+                          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0' }}>{school.schoolType} • {school.boardAffiliation}</p>
+                          {school.udiseCode && (
+                            <p style={{ color: '#94a3b8', fontSize: '0.78rem', margin: '2px 0 0 0' }}>UDISE: {school.udiseCode}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Details Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+                        {/* Address */}
+                        <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                            <MapPin size={16} color="#64748b" />
+                            <span style={{ fontWeight: '600', color: '#475569', fontSize: '0.85rem' }}>Address</span>
+                          </div>
+                          <p style={{ color: '#1e293b', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>
+                            {school.address}<br />
+                            {school.city}, {school.state} – {school.pincode}
+                          </p>
+                        </div>
+
+                        {/* Principal */}
+                        <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                            <User size={16} color="#64748b" />
+                            <span style={{ fontWeight: '600', color: '#475569', fontSize: '0.85rem' }}>Principal</span>
+                          </div>
+                          <p style={{ color: '#1e293b', fontSize: '0.9rem', margin: 0 }}>{school.principalName}</p>
+                          {school.principalContact && (
+                            <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '4px 0 0 0' }}>
+                              <Phone size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                              {school.principalContact}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Contact */}
+                        <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                            <Mail size={16} color="#64748b" />
+                            <span style={{ fontWeight: '600', color: '#475569', fontSize: '0.85rem' }}>Contact</span>
+                          </div>
+                          <p style={{ color: '#1e293b', fontSize: '0.9rem', margin: 0 }}>{school.schoolEmail}</p>
+                          {school.pocMobile && (
+                            <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '4px 0 0 0' }}>
+                              <Phone size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                              {school.pocMobile}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Nurse / Counsellor */}
+                        {(school.nurseCounsellorName || school.nurseName) && (
+                          <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                              <HeartPulse size={16} color="#64748b" />
+                              <span style={{ fontWeight: '600', color: '#475569', fontSize: '0.85rem' }}>Nurse / Counsellor</span>
+                            </div>
+                            <p style={{ color: '#1e293b', fontSize: '0.9rem', margin: 0 }}>{school.nurseCounsellorName || school.nurseName}</p>
+                            {(school.nurseCounsellorContact || school.nurseContact) && (
+                              <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '4px 0 0 0' }}>
+                                <Phone size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                                {school.nurseCounsellorContact || school.nurseContact}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Reg Number */}
+                      <div style={{ padding: '0.75rem 1.25rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Info size={15} color="#94a3b8" />
+                        <span style={{ fontSize: '0.82rem', color: '#64748b' }}>Registration No: <strong style={{ color: '#1e293b' }}>{school.registrationNo}</strong></span>
+                        {school.studentStrength && (
+                          <span style={{ marginLeft: 'auto', fontSize: '0.82rem', color: '#64748b' }}>Total Students: <strong style={{ color: '#1e293b' }}>{school.studentStrength}</strong></span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </motion.div>
           )}

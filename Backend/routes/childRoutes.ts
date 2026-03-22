@@ -158,11 +158,29 @@ router.patch("/:id/status", authenticateJWT, async (req: AuthRequest, res: any) 
   }
 });
 
+// GET edit history for a child
+router.get("/:id/edit-history", authenticateJWT, async (req: AuthRequest, res: any) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    const childId = parseInt(req.params.id as string);
+    const logs = await prisma.childEditLog.findMany({
+      where: { childId },
+      orderBy: { editedAt: "desc" },
+      include: {
+        editedBy: { select: { id: true, name: true, role: true } },
+      },
+    });
+    res.json(logs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Server error" });
+  }
+});
+
 // Update child details
 router.put("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
   try {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-    
+
     // Only Principal, Admin and Wombto18 Ops can edit
     const allowedRoles = ['SCHOOL_ADMIN', 'PRINCIPAL', 'WOMBTO18_OPS'];
     if (!allowedRoles.includes(req.user.role)) {
@@ -173,7 +191,31 @@ router.put("/:id", authenticateJWT, async (req: AuthRequest, res: any) => {
     const child = await prisma.child.findUnique({ where: { id: childId } });
     if (!child) return res.status(404).json({ error: "Child not found" });
 
+    // Compute diff: only fields that actually changed
+    const TRACKED_FIELDS = ['name', 'class', 'section', 'fatherName', 'motherName', 'fatherNumber', 'motherNumber', 'emailId', 'mobile', 'gender', 'notes'];
+    const changes: Record<string, { from: any; to: any }> = {};
+    for (const field of TRACKED_FIELDS) {
+      const incoming = field === 'class' && req.body[field] !== undefined
+        ? parseInt(req.body[field])
+        : req.body[field];
+      const current = (child as any)[field];
+      if (incoming !== undefined && String(incoming) !== String(current ?? '')) {
+        changes[field] = { from: current, to: incoming };
+      }
+    }
+
     const updated = await ChildService.updateChild(childId, req.body);
+
+    // Save edit log only if something changed
+    if (Object.keys(changes).length > 0) {
+      await prisma.childEditLog.create({
+        data: {
+          childId,
+          editedById: req.user.id,
+          changesJson: changes,
+        },
+      });
+    }
 
     const school = await prisma.school.findUnique({ where: { id: child.schoolId } });
     await dispatchNotification({
