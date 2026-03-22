@@ -1379,34 +1379,16 @@ const Dashboard: React.FC = () => {
               <School size={40} color="#cbd5e1" />
             </div>
             <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>Institution Not Linked</h2>
-            {['CLASS_TEACHER', 'STAFF', 'NURSE_COUNSELLOR'].includes(role) ? (
-              <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '450px', margin: '0 auto 2.5rem', lineHeight: 1.6 }}>
-                Your account isn&apos;t connected to a school yet. Please contact your school administrator to link your account.
-              </p>
-            ) : (
-              <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '450px', margin: '0 auto 2.5rem', lineHeight: 1.6 }}>
-                Your account isn&apos;t connected to an institution yet, or the session data is stale.
-                Try refreshing below — if the problem persists, please register your institution.
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => refreshAll()}
-                className="btn"
-                style={{ padding: '1rem 2rem', borderRadius: '18px', fontWeight: 700, fontSize: '1rem', background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0' }}
-              >
-                🔄 Retry Loading
-              </button>
-              {!['CLASS_TEACHER', 'STAFF', 'NURSE_COUNSELLOR'].includes(role) && (
-                <button
-                  onClick={() => navigate('/register-school')}
-                  className="btn btn-primary"
-                  style={{ padding: '1rem 2.5rem', borderRadius: '18px', fontWeight: 800, fontSize: '1rem' }}
-                >
-                  Complete Registration
-                </button>
-              )}
-            </div>
+            <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '450px', margin: '0 auto 2.5rem', lineHeight: 1.6 }}>
+              It seems your account hasn&apos;t been connected to an official institution yet. Please complete your registration.
+            </p>
+            <button 
+              onClick={() => navigate('/register-school')}
+              className="btn btn-primary" 
+              style={{ padding: '1rem 2.5rem', borderRadius: '18px', fontWeight: 800, fontSize: '1rem' }}
+            >
+              Complete Registration
+            </button>
           </div>
         )}
 
