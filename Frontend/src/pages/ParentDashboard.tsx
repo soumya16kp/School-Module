@@ -600,106 +600,97 @@ const ParentDashboard: React.FC = () => {
           )}
           {activeTab === 'school' && (
             <motion.div key="school" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <div className="glass-card" style={{ padding: '2rem', background: 'white', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem' }}>
-                  <GraduationCap size={22} color="#1e3a8a" />
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>School Information</h3>
+              {!data?.child?.school ? (
+                <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '16px' }}>
+                  <GraduationCap size={40} color="#cbd5e1" style={{ margin: '0 auto 1rem' }} />
+                  <p style={{ color: '#94a3b8' }}>School details not available.</p>
                 </div>
+              ) : (() => {
+                const s = data.child.school;
+                const PersonSlot = ({ title, name, contact, image, color }: any) => (
+                  <div style={{ padding: '1.25rem 1.5rem', borderRadius: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'white', border: '3px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {image ? <img src={image} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={24} color={color} />}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: '0.7rem', fontWeight: 800, color, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{title}</p>
+                      <p style={{ fontWeight: 700, color: '#1e293b', margin: '0 0 2px', fontSize: '0.92rem' }}>{name || <span style={{ color: '#94a3b8', fontWeight: 400 }}>Not Assigned</span>}</p>
+                      {contact && <p style={{ color: '#64748b', fontSize: '0.8rem', margin: 0 }}>{contact}</p>}
+                    </div>
+                  </div>
+                );
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
 
-                {!data?.child?.school ? (
-                  <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem' }}>School details not available.</p>
-                ) : (() => {
-                  const school = data.child.school;
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                      {/* School Name & Type */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '1.25rem', borderRadius: '14px', background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                    {/* School Profile */}
+                    <div className="glass-card" style={{ padding: '1.75rem', background: 'white', borderRadius: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '1.5rem' }}>
                         <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#1e3a8a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <GraduationCap size={26} color="white" />
                         </div>
-                        <div>
-                          <h4 style={{ fontWeight: '800', color: '#1e3a8a', fontSize: '1.15rem', margin: 0 }}>{school.schoolName}</h4>
-                          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0' }}>{school.schoolType} • {school.boardAffiliation}</p>
-                          {school.udiseCode && (
-                            <p style={{ color: '#94a3b8', fontSize: '0.78rem', margin: '2px 0 0 0' }}>UDISE: {school.udiseCode}</p>
-                          )}
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ fontWeight: 800, color: '#1e3a8a', fontSize: '1.15rem', margin: 0 }}>{s.schoolName}</h3>
+                          <p style={{ color: '#64748b', fontSize: '0.83rem', margin: '3px 0 0' }}>{[s.schoolType, s.boardAffiliation].filter(Boolean).join(' • ')}</p>
+                          {s.udiseCode && <p style={{ color: '#94a3b8', fontSize: '0.76rem', margin: '2px 0 0' }}>UDISE: {s.udiseCode}</p>}
                         </div>
-                      </div>
-
-                      {/* Details Grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-                        {/* Address */}
-                        <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
-                            <MapPin size={16} color="#64748b" />
-                            <span style={{ fontWeight: '600', color: '#475569', fontSize: '0.85rem' }}>Address</span>
-                          </div>
-                          <p style={{ color: '#1e293b', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>
-                            {school.address}<br />
-                            {school.city}, {school.state} – {school.pincode}
-                          </p>
-                        </div>
-
-                        {/* Principal */}
-                        <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
-                            <User size={16} color="#64748b" />
-                            <span style={{ fontWeight: '600', color: '#475569', fontSize: '0.85rem' }}>Principal</span>
-                          </div>
-                          <p style={{ color: '#1e293b', fontSize: '0.9rem', margin: 0 }}>{school.principalName}</p>
-                          {school.principalContact && (
-                            <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '4px 0 0 0' }}>
-                              <Phone size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                              {school.principalContact}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Contact */}
-                        <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
-                            <Mail size={16} color="#64748b" />
-                            <span style={{ fontWeight: '600', color: '#475569', fontSize: '0.85rem' }}>Contact</span>
-                          </div>
-                          <p style={{ color: '#1e293b', fontSize: '0.9rem', margin: 0 }}>{school.schoolEmail}</p>
-                          {school.pocMobile && (
-                            <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '4px 0 0 0' }}>
-                              <Phone size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                              {school.pocMobile}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Nurse / Counsellor */}
-                        {(school.nurseCounsellorName || school.nurseName) && (
-                          <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
-                              <HeartPulse size={16} color="#64748b" />
-                              <span style={{ fontWeight: '600', color: '#475569', fontSize: '0.85rem' }}>Nurse / Counsellor</span>
-                            </div>
-                            <p style={{ color: '#1e293b', fontSize: '0.9rem', margin: 0 }}>{school.nurseCounsellorName || school.nurseName}</p>
-                            {(school.nurseCounsellorContact || school.nurseContact) && (
-                              <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '4px 0 0 0' }}>
-                                <Phone size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                                {school.nurseCounsellorContact || school.nurseContact}
-                              </p>
-                            )}
-                          </div>
+                        {s.registrationNo && (
+                          <span style={{ background: '#eff6ff', color: '#1e40af', padding: '0.3rem 0.9rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{s.registrationNo}</span>
                         )}
                       </div>
-
-                      {/* Reg Number */}
-                      <div style={{ padding: '0.75rem 1.25rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Info size={15} color="#94a3b8" />
-                        <span style={{ fontSize: '0.82rem', color: '#64748b' }}>Registration No: <strong style={{ color: '#1e293b' }}>{school.registrationNo}</strong></span>
-                        {school.studentStrength && (
-                          <span style={{ marginLeft: 'auto', fontSize: '0.82rem', color: '#64748b' }}>Total Students: <strong style={{ color: '#1e293b' }}>{school.studentStrength}</strong></span>
-                        )}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1.25rem', padding: '1.25rem', background: '#f8fafc', borderRadius: '12px' }}>
+                        {[
+                          { label: 'Academic Year', value: s.academicYear },
+                          { label: 'Total Strength', value: s.studentStrength?.toLocaleString() },
+                          { label: 'Email', value: s.schoolEmail },
+                          { label: 'Phone', value: s.pocMobile },
+                          { label: 'Address', value: [s.address, s.city, s.state, s.pincode].filter(Boolean).join(', ') },
+                        ].filter(r => r.value).map(({ label, value }) => (
+                          <div key={label}>
+                            <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>{label}</p>
+                            <p style={{ color: '#1e293b', fontWeight: 500, fontSize: '0.87rem', margin: 0 }}>{value}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  );
-                })()}
-              </div>
+
+                    {/* Leadership */}
+                    <div className="glass-card" style={{ padding: '1.75rem', background: 'white', borderRadius: '16px' }}>
+                      <h4 style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <User size={17} color="#3b82f6" /> Institutional Leadership
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.875rem' }}>
+                        <PersonSlot title="Principal" name={s.principalName} contact={s.principalContact} image={s.principalImage} color="#3b82f6" />
+                        <PersonSlot title="Vice Principal" name={s.vicePrincipalName} contact={s.vicePrincipalContact} image={s.vicePrincipalImage} color="#8b5cf6" />
+                      </div>
+                    </div>
+
+                    {/* Emergency & Health */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                      <div className="glass-card" style={{ padding: '1.75rem', background: 'white', borderRadius: '16px' }}>
+                        <h4 style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <ShieldAlert size={17} color="#ef4444" /> Emergency Contacts
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <PersonSlot title="Fire Department" name={s.fireDeptName} contact={s.fireDeptContact} image={s.fireDeptImage} color="#f97316" />
+                          <PersonSlot title="Police Station" name={s.policeName} contact={s.policeContact} image={s.policeImage} color="#3b82f6" />
+                          <PersonSlot title="NDRF Trainer" name={s.ndrfName} contact={s.ndrfContact} image={s.ndrfImage} color="#16a34a" />
+                        </div>
+                      </div>
+                      <div className="glass-card" style={{ padding: '1.75rem', background: 'white', borderRadius: '16px' }}>
+                        <h4 style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HeartPulse size={17} color="#10b981" /> Health Experts
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <PersonSlot title="School Nurse" name={s.nurseName} contact={s.nurseContact} image={s.nurseImage} color="#10b981" />
+                          <PersonSlot title="Gynecologist" name={s.gynecologistName} contact={s.gynecologistContact} image={s.gynecologistImage} color="#ec4899" />
+                          <PersonSlot title="Pediatrician" name={s.pediatricianName} contact={s.pediatricianContact} image={s.pediatricianImage} color="#8b5cf6" />
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })()}
             </motion.div>
           )}
         </AnimatePresence>
