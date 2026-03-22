@@ -247,6 +247,13 @@ const Dashboard: React.FC = () => {
   const user = userStr ? JSON.parse(userStr) : null;
   const role = user?.role ?? '';
 
+  // Partners use a separate portal; redirect to avoid 403s on school APIs
+  useEffect(() => {
+    if (role === 'PARTNER') {
+      navigate('/partner/dashboard', { replace: true });
+    }
+  }, [role, navigate]);
+
   const { 
     school, 
     overview, 

@@ -80,6 +80,7 @@ const Events: React.FC = () => {
   const creditGoal = school?.annualCreditGoal || 50000;
   const isQRMode = (school as any)?.registrationMode === 'QR_LINK';
   const isUnlocked = isQRMode || totalCollected >= creditGoal;
+  console.log('[Events Debug]', { registrationMode: (school as any)?.registrationMode, isQRMode, totalCollected, creditGoal, isUnlocked, donations: school?.donations });
 
   const handleAssignProgram = async (prog: any, scheduledAt: string) => {
     try {

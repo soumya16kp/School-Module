@@ -110,6 +110,21 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const user = userStr ? JSON.parse(userStr) : null;
       const role = user?.role;
 
+      // Partners use PartnerDashboard and different APIs; skip school-scoped calls to avoid 403
+      if (role === 'PARTNER') {
+        setState({
+          events: [],
+          school: null,
+          ambassadors: [],
+          benefactors: [],
+          overview: null,
+          districtOverview: null,
+          loading: false,
+          error: null
+        });
+        return;
+      }
+
       const promises: any[] = [
         eventService.getAll(year),
         schoolService.getMySchool(),
