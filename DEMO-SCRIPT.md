@@ -85,7 +85,7 @@
 
 ### SCENE 1.2 — Partner Logs Into Their Own Portal
 
-**FEATURE:** Partner login (email + password, no OTP), dedicated partner dashboard.
+**FEATURE:** Partner login (email + password + OTP), dedicated partner dashboard.
 
 **WHO YOU ARE:** Rahul Bose, the channel partner.
 
@@ -93,9 +93,11 @@
 
 1. Go to: `http://localhost:5173/partner-login`
 2. Enter:
-   - Email: *(partner's registered email — use a pre-existing partner account from your DB, e.g. `rahul.partner@wombto18.com`)*
+   - Email: `rahul.partner@wombto18.com`
    - Password: `Partner@123`
-3. Click **"Login"**
+3. Click **"Continue"**
+4. OTP is sent to the email — check inbox or backend console
+5. Enter the 6-digit OTP → click **"Sign In to Portal"**
 
 **WHAT YOU SHOULD SEE:**
 - Partner Dashboard loads — different from school dashboard
@@ -1081,7 +1083,7 @@ A table with one row per school (only schools with ≥ 10 students), showing:
 | 23 | UDISE Report auto-fill + download | School Admin | Dashboard → UDISE Report |
 | 24 | Class Teacher restricted view — class badge, no dropdowns | Class Teacher | Login as teacher |
 | 25 | Class Teacher can only see their class at backend too | Class Teacher | Try accessing other class via URL |
-| 26 | Partner login (email + password, no OTP) | Partner | `/partner-login` |
+| 26 | Partner login (email + password + OTP, two-step) | Partner | `/partner-login` |
 | 27 | Partner: Impact Overview + rank + invite link | Partner | Partner Dashboard → Home tab |
 | 28 | Partner: Discover Schools + sponsor a school | Partner | Partner Dashboard → Discover Schools |
 | 29 | Partner: Transaction History | Partner | Partner Dashboard → Transaction History |
@@ -1109,7 +1111,7 @@ A table with one row per school (only schools with ≥ 10 students), showing:
 | Dr. Anita Sharma | School Admin | sunrise.school.demo@gmail.com | Admin@123 + OTP on email |
 | Ms. Kavita Desai | Class Teacher | kavita.teacher.demo@gmail.com | Teacher@123 + OTP |
 | Ms. Priya Deshpande | Nurse/Counsellor | priya.nurse.demo@gmail.com | Nurse@123 + OTP |
-| Rahul Bose | Partner | rahul.partner@wombto18.com | Partner@123 (no OTP) |
+| Rahul Bose | Partner | rahul.partner@wombto18.com | Partner@123 + OTP on email |
 | Riya Kapoor | WOMBTO18 Ops | ops.wombto18.demo@gmail.com | Ops@123 + OTP |
 | Mr. Ashok Rane | District Viewer | district.viewer.demo@gmail.com | District@123 + OTP |
 | Suresh Mehta | Parent | Mobile: 9312350305 | OTP on SMS / backend console |

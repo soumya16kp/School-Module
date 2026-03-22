@@ -7,27 +7,47 @@ import { motion } from 'framer-motion';
 const PartnerLogin: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
+  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
-      const response = await authService.login({ email, password });
-      if (response.user.role === 'PARTNER') {
-        navigate('/partner/dashboard');
-      } else {
-        // Even if they log in here with school account, show them school dashboard
-        navigate('/dashboard');
-      }
+      const res = await authService.sendLoginOtp(email, password);
+      if (res.devOtp) setDevOtp(res.devOtp);
+      setStep('otp');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const response = await authService.verifyLoginOtp(email, otp);
+      if (response.user.role === 'PARTNER') {
+        navigate('/partner/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = step === 'credentials' ? handleSendOtp : handleVerifyOtp;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: '#f8fafc' }}>
@@ -80,50 +100,66 @@ const PartnerLogin: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Corporate Email</label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-                <input 
-                  type="email" 
-                  placeholder="philanthropy@company.com" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  required 
-                  style={{ width: '100%', padding: '14px 14px 14px 42px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontSize: '1rem', transition: 'all 0.2s', outline: 'none' }}
-                  onFocus={(e) => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px var(--primary-light)'; }}
-                  onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                />
-              </div>
-            </div>
-            
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#475569' }}>Password</label>
-                <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}>Support access</span>
-              </div>
-              <div style={{ position: 'relative' }}>
-                <Lock size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-                <input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
-                  style={{ width: '100%', padding: '14px 14px 14px 42px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontSize: '1rem', transition: 'all 0.2s', outline: 'none' }}
-                  onFocus={(e) => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px var(--primary-light)'; }}
-                  onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                />
-              </div>
-            </div>
-            
-            <button 
-              type="submit" 
-              disabled={loading}
-              style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'var(--primary)', color: 'white', fontSize: '1.05rem', fontWeight: 700, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '0.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', transition: 'background 0.2s, transform 0.1s' }}
-            >
-              {loading ? 'Verifying Partnership...' : 'Sign In to Portal'} {!loading && <ArrowRight size={18} />}
-            </button>
+            {step === 'credentials' ? (
+              <>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Corporate Email</label>
+                  <div style={{ position: 'relative' }}>
+                    <Mail size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+                    <input
+                      type="email"
+                      placeholder="philanthropy@company.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      style={{ width: '100%', padding: '14px 14px 14px 42px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontSize: '1rem', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Password</label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      style={{ width: '100%', padding: '14px 14px 14px 42px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontSize: '1rem', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+                <button type="submit" disabled={loading} style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'var(--primary)', color: 'white', fontSize: '1.05rem', fontWeight: 700, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                  {loading ? 'Sending OTP...' : 'Continue'} {!loading && <ArrowRight size={18} />}
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ padding: '12px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', fontSize: '0.9rem', color: '#166534' }}>
+                  OTP sent to <strong>{email}</strong>. Check your email or backend console.
+                  {devOtp && <div style={{ marginTop: '8px', fontWeight: 700, fontSize: '1rem' }}>Dev OTP: <span style={{ letterSpacing: '0.2em' }}>{devOtp}</span></div>}
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Enter OTP</label>
+                  <input
+                    type="text"
+                    placeholder="6-digit code"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    required
+                    maxLength={6}
+                    style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontSize: '1.2rem', letterSpacing: '0.3em', textAlign: 'center', outline: 'none' }}
+                  />
+                </div>
+                <button type="submit" disabled={loading} style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'var(--primary)', color: 'white', fontSize: '1.05rem', fontWeight: 700, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                  {loading ? 'Verifying...' : 'Sign In to Portal'} {!loading && <ArrowRight size={18} />}
+                </button>
+                <button type="button" onClick={() => { setStep('credentials'); setError(''); setOtp(''); }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.9rem', cursor: 'pointer', textAlign: 'center' }}>
+                  ← Back
+                </button>
+              </>
+            )}
           </form>
 
           <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>

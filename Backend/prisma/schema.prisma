@@ -19,7 +19,8 @@ model User {
   role            UserRole   @default(SCHOOL_ADMIN)
   assignedClass   Int?
   assignedSection String?
-  phone           String?
+  phone               String?
+  partnerInviteToken  String?   @unique
   donations           Donation[]
   eventRequests       EventRequest[]     @relation("UserRequests")
   healthRecordEdits   HealthRecordEdit[]

@@ -14,6 +14,7 @@ const PartnerDashboard: React.FC = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [generatingId, setGeneratingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -85,6 +86,20 @@ const PartnerDashboard: React.FC = () => {
       alert('Failed to download invoice. Please try again.');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleGenerateInvoice = async (inv: any) => {
+    try {
+      setGeneratingId(inv.eventId);
+      const { filename } = await partnerService.generateInvoice(inv.eventId);
+      // Update the invoice in local state so button switches to Download
+      setInvoices(prev => prev.map(i => i.eventId === inv.eventId ? { ...i, invoiceFile: filename, hasInvoice: true } : i));
+      await partnerService.downloadInvoice(filename);
+    } catch (err) {
+      alert('Failed to generate invoice. Please try again.');
+    } finally {
+      setGeneratingId(null);
     }
   };
 
@@ -266,7 +281,18 @@ const PartnerDashboard: React.FC = () => {
                           {downloadingId === inv.eventId ? 'Downloading...' : 'Download'}
                         </button>
                       ) : (
-                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>No invoice generated</span>
+                        <button
+                          onClick={() => handleGenerateInvoice(inv)}
+                          disabled={generatingId === inv.eventId}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: generatingId === inv.eventId ? '#94a3b8' : '#f1f5f9', color: generatingId === inv.eventId ? 'white' : '#475569', padding: '10px 20px', borderRadius: '12px', fontWeight: 700, fontSize: '0.9rem', border: '1px solid #e2e8f0', cursor: generatingId === inv.eventId ? 'not-allowed' : 'pointer' }}
+                        >
+                          {generatingId === inv.eventId ? (
+                            <span className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid #475569', borderTopColor: 'transparent', borderRadius: '50%' }}></span>
+                          ) : (
+                            <FileText size={16} />
+                          )}
+                          {generatingId === inv.eventId ? 'Generating...' : 'Generate Invoice'}
+                        </button>
                       )}
                     </div>
                   </motion.div>

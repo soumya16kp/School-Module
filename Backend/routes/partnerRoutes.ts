@@ -5,6 +5,7 @@ import Razorpay from "razorpay";
 import prisma from "../prismaClient";
 import path from "path";
 import fs from "fs";
+import PDFDocument from "pdfkit";
 
 const router = express.Router();
 
@@ -162,6 +163,80 @@ router.get("/invoices", authenticateJWT, async (req: AuthRequest, res) => {
     });
 
     res.json(invoices);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST /partner/invoices/generate/:eventId — generate PDF invoice for an event
+router.post("/invoices/generate/:eventId", authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    const eventId = parseInt(req.params.eventId);
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { school: true, ambassador: true }
+    });
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    const invoiceDir = path.join(process.cwd(), 'uploads', 'invoices');
+    if (!fs.existsSync(invoiceDir)) fs.mkdirSync(invoiceDir, { recursive: true });
+
+    const filename = `Event_${eventId}_${Date.now()}.pdf`;
+    const filePath = path.join(invoiceDir, filename);
+
+    await new Promise<void>((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50 });
+      const stream = fs.createWriteStream(filePath);
+      doc.pipe(stream);
+
+      // Header
+      doc.fontSize(22).font('Helvetica-Bold').text('WombTo18', 50, 50);
+      doc.fontSize(10).font('Helvetica').fillColor('#64748b').text('Health & Wellness Platform', 50, 78);
+      doc.moveTo(50, 100).lineTo(545, 100).strokeColor('#e2e8f0').stroke();
+
+      // Title
+      doc.fontSize(18).font('Helvetica-Bold').fillColor('#1e293b').text('Event Invoice', 50, 120);
+      doc.fontSize(10).font('Helvetica').fillColor('#64748b').text(`Generated: ${new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })}`, 50, 145);
+
+      // Event details
+      doc.moveDown(2);
+      const s = event.school as any;
+      const rows = [
+        ['Event', event.title],
+        ['Type', (event.type || '').replace(/_/g, ' ')],
+        ['School', s?.schoolName || '—'],
+        ['Location', [s?.city, s?.state].filter(Boolean).join(', ') || '—'],
+        ['Scheduled', event.scheduledAt ? new Date(event.scheduledAt).toLocaleDateString('en-IN', { dateStyle: 'long' }) : '—'],
+        ['Completed', event.completedAt ? new Date(event.completedAt).toLocaleDateString('en-IN', { dateStyle: 'long' }) : '—'],
+        ['Ambassador', (event.ambassador as any)?.name || 'Not assigned'],
+      ];
+
+      const att = event.attendanceJson as any;
+      if (att?.totalPresent !== undefined) {
+        rows.push(['Attendance', `${att.totalPresent} / ${att.totalExpected || '—'} students present`]);
+      }
+
+      let y = doc.y + 10;
+      rows.forEach(([label, value], i) => {
+        const bg = i % 2 === 0 ? '#f8fafc' : '#ffffff';
+        doc.rect(50, y, 495, 28).fill(bg);
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#475569').text(label, 60, y + 8);
+        doc.fontSize(10).font('Helvetica').fillColor('#1e293b').text(String(value), 200, y + 8);
+        y += 28;
+      });
+
+      // Footer
+      doc.moveTo(50, y + 20).lineTo(545, y + 20).strokeColor('#e2e8f0').stroke();
+      doc.fontSize(9).fillColor('#94a3b8').text('This is a system-generated invoice from the WombTo18 School Health Platform.', 50, y + 30, { align: 'center' });
+
+      doc.end();
+      stream.on('finish', resolve);
+      stream.on('error', reject);
+    });
+
+    res.json({ filename });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

@@ -40,5 +40,9 @@ pnpm-debug.log*
 # Uploads
 Backend/uploads/
 
+# Demo scripts
+DEMO-SCRIPT.md
+DEMO-SCRIPT-COMPLETE.md
+
 # Misc
 *.local

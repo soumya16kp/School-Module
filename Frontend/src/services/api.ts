@@ -379,6 +379,10 @@ export const partnerService = {
     const response = await api.get('/partner/invoices');
     return response.data;
   },
+  generateInvoice: async (eventId: number) => {
+    const response = await api.post(`/partner/invoices/generate/${eventId}`);
+    return response.data as { filename: string };
+  },
   downloadInvoice: async (filename: string) => {
     const response = await api.get(`/partner/invoices/${filename}`, {
       responseType: 'blob'
