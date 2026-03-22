@@ -117,7 +117,7 @@ export class ChildService {
         completedAt: ev.completedAt,
         status: status
       };
-    }).filter((e: any) => e.status !== 'Scheduled' || e.scheduledAt);
+    });
 
     const activityHistory = wellnessHistory;
     
