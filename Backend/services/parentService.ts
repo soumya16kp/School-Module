@@ -27,16 +27,28 @@ export class ParentService {
     // Collect unique emails associated with these children
     const emails = [...new Set(children.map((c: any) => c.emailId).filter(Boolean))] as string[];
 
-    // Send SMS
-    await sendOtpSms(phone, code);
+    // Send SMS (non-fatal — email is the fallback)
+    let smsSent = false;
+    try {
+      await sendOtpSms(phone, code);
+      smsSent = true;
+    } catch (smsErr: any) {
+      console.error(`[OTP] SMS failed for ${phone}:`, smsErr.message);
+    }
 
-    // Also send to all associated emails
+    // Send to all associated emails
+    let emailSent = false;
     if (emails.length > 0) {
-      await Promise.all(emails.map(email => sendOtpEmail(email, code).catch(e => console.error(`Failed to send OTP email to ${email}`, e))));
+      const results = await Promise.allSettled(emails.map(email => sendOtpEmail(email, code)));
+      emailSent = results.some(r => r.status === 'fulfilled');
+    }
+
+    if (!smsSent && !emailSent) {
+      throw new Error("Failed to deliver OTP via SMS or email. Please try again later.");
     }
 
     const devOtp = SHOW_DEV_OTP ? { devOtp: code } : {};
-    return { sent: true, ...devOtp };
+    return { sent: true, smsSent, emailSent, ...devOtp };
   }
 
   static async verifyOtp(phone: string, code: string) {
